@@ -115,7 +115,15 @@ def test_credits_exactly_once(db):
 def test_invoice_duplicate_and_old_period(db, monkeypatch):
     from types import SimpleNamespace
 
-    monkeypatch.setattr("stripe.Subscription.retrieve", lambda _: SimpleNamespace(status="active", customer="cus_test"))
+    monkeypatch.setattr(settings(), "stripe_subscription_price", "price_subscription")
+    monkeypatch.setattr(
+        "stripe.Subscription.retrieve",
+        lambda _: SimpleNamespace(
+            status="active",
+            customer="cus_test",
+            items={"data": [{"quantity": 1, "price": {"id": "price_subscription"}}]},
+        ),
+    )
     w = db.get(Workspace, "w")
     w.customer_id = "cus_test"
     w.included = 0

@@ -1,13 +1,14 @@
 # Customizing your desktop
 
-## What persists now
+## What persists
 
-| Customization | How to change it | Persistence |
-|---|---|---|
-| Wallpaper and appearance | Take control; open the Linux Applications → Settings menu | Home configuration survives normal stop/start |
-| Browser preferences, extensions and profile | Use the visible Chromium browser | Home profile survives normal stop/start |
-| Files, scripts and project environments | Files, terminal or desktop apps | Home volume survives normal stop/start |
-| System packages and configuration | Dashboard Terminal while you have control | Saved in a system snapshot when stopping normally |
+| Customization                               | How to change it                                                      | Persistence                                       |
+| ------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| Wallpaper and appearance                    | Take control; open Linux Applications → Settings                      | Home configuration survives normal stop/start     |
+| Browser preferences, extensions and profile | Use visible Chromium                                                  | Home profile survives normal stop/start           |
+| Files, scripts and project environments     | Files, terminal or desktop apps                                       | Home volume survives normal stop/start            |
+| System packages and configuration           | Dashboard Terminal while you have control                             | Saved in a system snapshot when stopping normally |
+| CPU and memory                              | Owner: stop the computer, then open desktop customization in Settings | Applied on the next start                         |
 
 For example, install a utility from the dashboard Terminal:
 
@@ -20,12 +21,30 @@ Stop the computer from the dashboard, wait until it is stopped, then start it ag
 
 The dashboard terminal has administrator privileges inside your computer. The graphical desktop runs as the `desktop` user. That user does not have passwordless sudo; use the dashboard terminal for administrator changes.
 
-## Limits of the current implementation
+## Resources
 
-- One Linux base image, with a fixed 1440×900 display and 2 CPU/4 GiB RAM allocation.
-- No user-facing template library, template sharing, clone/restore UI, resource sliders or Windows/macOS desktops yet.
-- Snapshots preserve system files, not live process memory. Unexpected destruction before a snapshot can lose recent system changes. Home data persists independently, but is not backed up automatically.
-- Deleting a computer erases its home and removes its saved system snapshot. It is not a restore operation.
-- The local Docker preview uses a development-only Chromium `--no-sandbox` flag because the default Docker Desktop environment blocks Chromium's namespace sandbox. Production must use a compatible hardened runtime and does not receive that flag. Do not expose this development environment publicly.
+Workspace owners can select **1 or 2 CPU cores** and **2 or 4 GiB RAM**. Defaults are 2 CPU / 4 GiB. Stop the desktop first; the worker passes the saved allocation to OpenSandbox on the next start. Larger allocations and storage resizing are not available yet. The display remains fixed at 1440×900.
 
-A hosted version needs storage quotas, tested backups and stronger isolation before offering unrestricted administrator access to customers. See ROADBLOCKS.md for the remaining platform work.
+## Clone a complete desktop
+
+Start and stop the source at least once so its system snapshot is saved. In Settings → desktop customization, select a stopped computer, enter a new name and choose **Clone computer**. The source stays unavailable during the operation. Follow progress under recent operations; the clone is ready when it becomes stopped.
+
+Clones copy installed software, system settings and the entire home folder into independent storage. This includes documents, browser sessions and credentials saved in that home. Changes to a clone do not change its source. The clone counts toward the saved-computer limit: two for an active paid plan, one for a trial. A failed clone must be deleted before retrying.
+
+## Save a reusable system template
+
+Choose **Save system template** for a stopped computer. A template includes installed applications and system settings but **excludes the home folder**: documents, browser sessions, wallpaper and per-user preferences do not carry over. Credentials written outside the home can still be included, so avoid storing secrets in system files.
+
+Templates are private to the workspace; owners can create, use and delete them. Up to five can be saved. Enter a name and choose **Create computer** beside a ready template to create a computer with a fresh home. Each consumer has its own system snapshot; deleting a template does not invalidate existing computers made from it.
+
+See [feature details and API routes](FEATURES.md) for quotas, asynchronous operations and recovery behavior.
+
+## Persistence and recovery limits
+
+- Snapshots preserve system files, not live process memory. Unexpected destruction before a snapshot can lose recent system changes. Home data persists independently.
+- Deleting a computer erases its home and removes its saved system snapshot. It is not a restore operation. Self-service point-in-time restore, public template sharing and Windows/macOS desktops are not implemented.
+- Operator [backup and recovery](BACKUPS.md) tools exist; local backup extraction and a disposable database restore have passed. Their availability does not mean your desktop has a scheduled backup or that a complete recovery drill has passed. Production needs a defined off-host backup schedule and tested recovery.
+- The local Docker preview uses a development-only Chromium `--no-sandbox` flag because Docker Desktop blocks Chromium's namespace sandbox. Production does not receive that flag and requires a tested hardened runtime. Do not expose this development environment publicly.
+- CPU/RAM limits do not enforce disk quotas. The clone has a 20 GiB copy-size safeguard, but persistent home volumes and snapshots still need independently enforced production storage quotas.
+
+See [production runtime preparation](PRODUCTION_RUNTIME.md), [deployment](DEPLOYMENT.md), and [remaining launch blockers](../ROADBLOCKS.md).

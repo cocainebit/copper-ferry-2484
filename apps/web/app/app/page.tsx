@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { PlatformFeatures } from "@/components/platform-features";
+import { ServiceSetup } from "@/components/service-setup";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -750,6 +752,18 @@ export default function Dashboard() {
                 <p>The right tools, the right people.</p>
               </div>
             </div>
+            {workspace.role === "owner" && (
+              <>
+                <article className="settings-card">
+                  <ServiceSetup workspaceId={wid} />
+                </article>
+                <PlatformFeatures
+                  workspaceId={wid}
+                  computers={computers}
+                  onRefresh={refresh}
+                />
+              </>
+            )}
             <article className="settings-card">
               <div className="card-title">
                 <KeyRound size={20} />

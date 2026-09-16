@@ -1,0 +1,102 @@
+# Dedicated Linux host only. See docs/PRODUCTION_RUNTIME.md before applying.
+name: agent-desktop-production
+x-api-environment: &api-environment
+  DEV_MODE: "false"
+  DATABASE_URL: ${DATABASE_URL:?Production Postgres URL required}
+  PUBLIC_URL: https://${APP_DOMAIN:?Application domain required}
+  SUPABASE_URL: ${SUPABASE_URL:?Supabase URL required}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Stable Fernet encryption key required}
+  SIGNING_KEY: ${SIGNING_KEY:?Strong stable signing key required}
+  OPS_TOKEN: ${OPS_TOKEN:?Private monitoring token required}
+  OPENSANDBOX_DOMAIN: opensandbox:8080
+  OPENSANDBOX_PROTOCOL: http
+  OPENSANDBOX_API_KEY: ${OPENSANDBOX_API_KEY:?Strong sandbox key required}
+  DESKTOP_IMAGE: ${DESKTOP_IMAGE:?Reviewed desktop image tag or digest required}
+  MAX_DESKTOPS: ${MAX_DESKTOPS:-4}
+  LAUNCH_ENABLED: "false"
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  STRIPE_SUBSCRIPTION_PRICE: ${STRIPE_SUBSCRIPTION_PRICE:-}
+  STRIPE_TOPUP_PRICE: ${STRIPE_TOPUP_PRICE:-}
+  TRIAL_ADAPTER_URL: ${TRIAL_ADAPTER_URL:-}
+  TRIAL_ADAPTER_KEY: ${TRIAL_ADAPTER_KEY:-}
+  TRIAL_CHAIN: ${TRIAL_CHAIN:-}
+  TRIAL_TOKEN: ${TRIAL_TOKEN:-}
+  TRIAL_RECIPIENT: ${TRIAL_RECIPIENT:-}
+  TRIAL_DECIMALS: ${TRIAL_DECIMALS:--1}
+x-api-base: &api-base
+  image: agent-desktop-api:production
+  build:
+    context: .
+    dockerfile: infra/production/api.Dockerfile
+  environment: *api-environment
+  networks: [control]
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: "no"
+services:
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Application domain required}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./infra/production/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [control]
+    restart: "no"
+  web:
+    build:
+      context: .
+      dockerfile: infra/production/web.Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL:?Supabase URL required}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Publishable Supabase anon key required}
+    networks: [control]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+  api:
+    <<: *api-base
+  worker:
+    <<: *api-base
+    command: [/app/.venv/bin/python, -m, desktop_service.worker]
+  migrate:
+    <<: *api-base
+    profiles: [maintenance]
+    restart: "no"
+    command: [/app/.venv/bin/python, -m, desktop_service.migrate]
+  opensandbox:
+    build:
+      context: ../OpenSandbox/server
+    environment:
+      OPENSANDBOX_SERVER_API_KEY: ${OPENSANDBOX_API_KEY:?Strong sandbox key required}
+    entrypoint: [/bin/sh, /production-entrypoint.sh]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/production/opensandbox.toml:/etc/opensandbox/config.toml:ro
+      - ./infra/production/opensandbox-entrypoint.sh:/production-entrypoint.sh:ro
+      - /var/lib/agent-desktop/isolation:/isolation:ro
+      - sandbox-store:/data
+    networks:
+      control: {}
+      sandboxes:
+        ipv4_address: 172.30.0.2
+    restart: "no"
+networks:
+  control:
+    name: agent-desktop-control
+    driver_opts:
+      com.docker.network.bridge.name: br-ad-control
+  sandboxes:
+    external: true
+    name: agent-desktop-sandboxes
+volumes:
+  caddy-data:
+  caddy-config:
+  sandbox-store:

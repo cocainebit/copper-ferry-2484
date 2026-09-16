@@ -10,12 +10,13 @@ from datetime import timedelta
 from uuid import uuid4
 
 import anthropic
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
-from . import runtime
+from . import features, runtime
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .entitlements import balance, charge
+from .feature_models import FeatureJob
 from .security import seal, unseal
 
 log = logging.getLogger("desktop-worker")
@@ -95,7 +96,9 @@ async def agent(rid, lease):
             with Session() as db:
                 r = db.get(Run, rid)
                 c = db.get(Computer, r.computer_id)
-                if r.lease != lease or r.status != "running" or c.controller != "agent" or c.status != "running":
+                if r.lease != lease:
+                    return
+                if r.status != "running" or c.controller != "agent" or c.status != "running":
                     finish_pause(db, r, c)
                     return
                 if r.steps >= settings().max_steps or now() - r.started_at > timedelta(minutes=settings().run_minutes):
@@ -154,7 +157,9 @@ async def agent(rid, lease):
             with Session() as db:
                 r = db.get(Run, rid)
                 c = db.get(Computer, r.computer_id)
-                if r.lease != lease or r.status != "running" or c.controller != "agent":
+                if r.lease != lease:
+                    return
+                if r.status != "running" or c.controller != "agent":
                     finish_pause(db, r, c)
                     return
                 r.messages = [*messages, {"role": "assistant", "content": blocks}]
@@ -183,7 +188,9 @@ async def agent(rid, lease):
                 with Session() as db:
                     r = db.get(Run, rid)
                     c = db.get(Computer, r.computer_id)
-                    if r.lease != lease or r.status != "running" or c.controller != "agent":
+                    if r.lease != lease:
+                        return
+                    if r.status != "running" or c.controller != "agent":
                         if results:
                             # Complete the entire tool-result turn, mark unexecuted remainder explicitly.
                             done = {x["tool_use_id"] for x in results}
@@ -212,15 +219,20 @@ async def agent(rid, lease):
                     content = output[:30000]
                 results.append({"type": "tool_result", "tool_use_id": t["id"], "content": content})
                 with Session() as db:
+                    current = db.get(Run, rid)
+                    if current.lease != lease:
+                        return
                     event(db, c.id, f"{t['name']}: {t['input'].get('action', 'command')}", "activity", rid)
                     db.commit()
             with Session() as db:
                 r = db.get(Run, rid)
+                if r.lease != lease:
+                    return
                 r.messages = [*r.messages, {"role": "user", "content": results}]
                 r.pending_tools = []
                 db.commit()
-    except Exception:
-        log.exception("Run failed: %s", rid)
+    except Exception as exc:
+        log.error("Run interrupted: %s (%s)", rid, type(exc).__name__)
         with Session() as db:
             r = db.get(Run, rid)
             if r and r.lease == lease:
@@ -263,9 +275,15 @@ async def reconcile():
         ).all()
         for c in computers:
             w = db.scalar(select(Workspace).where(Workspace.id == c.workspace_id).with_for_update())
+            db.refresh(c)
             try:
                 if c.status == "starting":
-                    running = sum(x.status == "running" for x in computers)
+                    running = db.scalar(
+                        select(func.count()).select_from(Computer).where(Computer.status.in_(["running", "stopping"]))
+                    )
+                    running += db.scalar(
+                        select(func.count()).select_from(FeatureJob).where(FeatureJob.status == "running")
+                    )
                     if running >= settings().max_desktops:
                         continue
                     if balance(db, w) <= 0:
@@ -351,14 +369,25 @@ async def scheduler_heartbeat():
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    lock = engine.connect()
+    lock = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
     if engine.dialect.name == "postgresql" and not lock.execute(text("SELECT pg_try_advisory_lock(8118026)")).scalar():
         raise RuntimeError("Another scheduler already owns the lifecycle lock")
+    lock_pid = lock.execute(text("SELECT pg_backend_pid()")).scalar() if engine.dialect.name == "postgresql" else None
     tasks = set()
+    feature_task = None
     health_task = asyncio.create_task(scheduler_heartbeat())
     try:
         while True:
+            if lock_pid is not None and lock.execute(text("SELECT pg_backend_pid()")).scalar() != lock_pid:
+                raise RuntimeError("Scheduler database session changed; stop to protect singleton ownership")
             await reconcile()
+            if feature_task is None or feature_task.done():
+                if feature_task is not None:
+                    try:
+                        feature_task.result()
+                    except Exception:
+                        log.exception("Feature scheduler failed")
+                feature_task = asyncio.create_task(features.process_one())
             with Session() as db:
                 rows = db.scalars(
                     select(Run).where(Run.status == "queued", Run.lease.is_(None)).with_for_update(skip_locked=True)
@@ -378,6 +407,9 @@ async def main():
             await asyncio.sleep(2)
     finally:
         health_task.cancel()
+        if feature_task is not None:
+            feature_task.cancel()
+            await asyncio.gather(feature_task, return_exceptions=True)
         await asyncio.gather(health_task, return_exceptions=True)
         for task in tasks:
             task.cancel()

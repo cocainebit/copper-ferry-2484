@@ -16,18 +16,23 @@ export default function Login() {
     return path.startsWith("/invite?token=") ? path : "/app";
   }
   async function oauth(provider: "google" | "github") {
+    sessionStorage.removeItem("use-local-workspace");
     if (!supabase) {
       setError("Sign-in is not configured yet.");
       return;
     }
+    setError("");
+    setBusy(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: location.origin + destination() },
     });
     if (error) setError(error.message);
+    setBusy(false);
   }
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    sessionStorage.removeItem("use-local-workspace");
     setError("");
     setBusy(true);
     try {
@@ -67,10 +72,10 @@ export default function Login() {
           starts here.
         </h1>
         <p className="muted">Sign in or create your workspace.</p>
-        <Button variant="ghost" onClick={() => oauth("google")}>
+        <Button variant="ghost" disabled={busy} onClick={() => oauth("google")}>
           <span className="google-g">G</span>Continue with Google
         </Button>
-        <Button variant="ghost" onClick={() => oauth("github")}>
+        <Button variant="ghost" disabled={busy} onClick={() => oauth("github")}>
           <Github size={18} />
           Continue with GitHub
         </Button>
@@ -83,6 +88,7 @@ export default function Login() {
             <input
               type="email"
               required
+              disabled={sent || busy}
               autoComplete="email"
               placeholder="you@company.com"
               value={email}
@@ -110,6 +116,19 @@ export default function Login() {
             <ArrowRight size={16} />
           </Button>
         </form>
+        {sent && (
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              setSent(false);
+              setCode("");
+              setError("");
+            }}
+          >
+            Use another email or resend code
+          </Button>
+        )}
         {error && (
           <p role="alert" className="error-text">
             {error}
@@ -119,7 +138,13 @@ export default function Login() {
           <p className="muted">Check your email for a sign-in link or code.</p>
         )}
         {process.env.NEXT_PUBLIC_DEV_MODE === "true" && (
-          <Link className="text-link" href="/app">
+          <Link
+            className="text-link"
+            href="/app"
+            onClick={() =>
+              sessionStorage.setItem("use-local-workspace", "true")
+            }
+          >
             Open local development workspace <ArrowRight size={14} />
           </Link>
         )}

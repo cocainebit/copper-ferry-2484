@@ -2,7 +2,7 @@
 
 A cloud-computer service for AI agents, with a live desktop viewer and a reusable token-holder trial service for a broader platform.
 
-**Status:** the local platform runs real Linux desktops with live viewing, browser control and persistent home/system customization. Public checkout is disabled. Anthropic BYOK and external providers still need credentials; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
+**Status:** the local platform runs real Linux desktops with persistent home/system customization and PostgreSQL. A local Supabase stack supports tested email-code authentication. Resource controls, independent clones and private system templates are implemented; use the real integration checks below to verify the deployed runtime. Public checkout remains disabled. Anthropic, hosted OAuth/mail, Stripe and the actual platform token still need configuration and end-to-end validation; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
 
 ## What is here
 
@@ -10,8 +10,10 @@ A cloud-computer service for AI agents, with a live desktop viewer and a reusabl
 - Supabase Google/GitHub/email authentication, owner/member workspaces, invitation links, encrypted Anthropic BYOK.
 - Durable agent runs and tool results, separate worker, pause/resume at tool boundaries, step/time limits and recent screenshot retention.
 - OpenSandbox adapter with persistent home volumes, crash recovery by computer metadata, stop/restart, expiration renewal and deletion cleanup.
+- Owner-controlled CPU/RAM profiles, durable full-desktop cloning, private system templates and independent computers created from templates.
+- PostgreSQL storage, advisory-lock scheduling, concurrent credit metering checks, readiness endpoints and private Prometheus metrics.
 - Stripe subscription/top-up checkout, portal, signature-checked webhooks and idempotent minute metering.
-- Seven-day, service-scoped trials with wallet ownership challenges, exact-token verification, finalized historical holdings checks and replay protection. The concrete blockchain adapter is deliberately unconfigured until the platform token is known.
+- Seven-day, service-scoped trials with wallet ownership challenges, exact-token verification, finalized historical holdings checks and replay protection. An EVM adapter is included; token/network/treasury configuration remains disabled until the actual platform token is known and chain tests pass.
 
 ## Repository layout
 
@@ -20,11 +22,14 @@ apps/web/                   Next.js frontend
 services/api/               FastAPI, database, billing, agent worker and tests
 packages/platform-trials/   Shared TypeScript client for the main website
 infra/desktop/              Linux desktop image, visible Chromium and VNC
-infra/Caddyfile              Same-origin HTTPS and WebSocket reverse proxy
-scripts/                    Local startup, isolated browser API, desktop smoke test
+infra/Caddyfile             Local same-origin HTTPS and WebSocket proxy
+infra/production/          Dedicated-Linux/gVisor deployment scaffold
+infra/monitoring/          Prometheus scrape and alert configuration
+supabase/                  Local email authentication and templates
+scripts/                   Startup, runtime checks, backups and restore drill
 ```
 
-Customer guides: [getting started](docs/GETTING_STARTED.md) and [customizing desktops](docs/CUSTOMIZING_DESKTOPS.md).
+Customer guides: [getting started](docs/GETTING_STARTED.md), [customizing desktops](docs/CUSTOMIZING_DESKTOPS.md), [clones/templates/resources](docs/FEATURES.md), and [accounts, AI provider and billing](docs/ACCOUNT_SETUP.md).
 
 Upstream fork: https://github.com/cocainebit/OpenSandbox. Keep it alongside this repository as `../OpenSandbox`. The Python SDK is pinned to commit `f7e32e5f4b1d77502db54ffdbb21eb7d7f57ce96`. The application is separate from the Apache-2.0 upstream fork.
 
@@ -42,7 +47,7 @@ Create `services/api/.env` for local use only:
 
 ```dotenv
 DEV_MODE=true
-DATABASE_URL=sqlite:///./.local/desktop.db
+DATABASE_URL=postgresql+psycopg://desktop:local-desktop-password@127.0.0.1:54329/desktop
 PUBLIC_URL=http://localhost:3000
 OPENSANDBOX_DOMAIN=localhost:8080
 OPENSANDBOX_API_KEY=local-sandbox-key-not-for-production
@@ -61,11 +66,13 @@ From the repository root:
 
 ```sh
 docker compose --profile build build desktop-image
-docker compose up -d opensandbox
+docker compose up -d postgres opensandbox
 sh scripts/dev.sh
 ```
 
-Open **http://localhost:3000**. Local mode creates one development account with test credits and bypasses login. Never expose it publicly. For frontend/API work without Docker, start uvicorn and `npm run dev` separately; desktop creation will remain queued without a worker. API docs: http://localhost:8000/docs.
+Open **http://localhost:3000**. Local mode creates one development account with test credits and bypasses login when frontend Supabase values are absent. Never expose this mode publicly. Follow [local Supabase setup](docs/ACCOUNT_SETUP.md#local-authentication-without-a-cloud-account) to exercise real email-code sessions and the local mail inbox. The application Postgres database and Supabase Auth database are separate. API docs: http://localhost:8000/docs.
+
+SQLite remains supported for isolated tests and lightweight frontend work; it is no longer the recommended full-stack development database. Existing SQLite installations should use the reviewed [migration utility](scripts/migrate_sqlite.py), retaining the original database and encryption key. Do not point a migration at a populated database without reviewing its safeguards.
 
 ## Verification
 
@@ -88,10 +95,27 @@ cd services/api
 .venv/bin/python ../../scripts/smoke_desktop.py
 ```
 
-The smoke test creates a dedicated disposable computer, checks screenshot capture, the live VNC handshake, visible Chromium and persistent files across restarts, then erases that computer's files. It now passes on this machine, including readiness checks after restoring the system snapshot.
+The desktop smoke test creates a dedicated disposable computer, checks screenshot capture, the live VNC handshake, visible Chromium and persistent files across restarts, then erases only that computer's files.
+
+Additional integration checks, run from `services/api`:
+
+```sh
+.venv/bin/python ../../scripts/check_postgres.py
+.venv/bin/python ../../scripts/smoke_features.py
+```
+
+The Postgres check creates and removes a unique temporary schema. It has passed real concurrent metering, replay protection, sequence and advisory-lock checks. The feature smoke test requires a running API/worker/OpenSandbox stack and development mode; it creates its own workspace, checks actual cgroup resource limits, clone isolation and template behavior, then deletes only its own desktops/templates. It retains database audit records. See the script output for runtime-specific results; unit tests alone do not establish copy or restore correctness.
 
 ## Deploying and integrating the main website
 
-Use `.env.example`, [architecture](docs/ARCHITECTURE.md), [deployment checklist](docs/DEPLOYMENT.md), and [trial integration contract](docs/TRIAL_INTEGRATION.md). Run one scheduler, separate API/web services, a private OpenSandbox host and Postgres. Keep `LAUNCH_ENABLED=false` until the outstanding integration and infrastructure checks pass.
+Use `.env.example`, [architecture](docs/ARCHITECTURE.md), [deployment checklist](docs/DEPLOYMENT.md), [production runtime scaffold](docs/PRODUCTION_RUNTIME.md), and [trial integration contract](docs/TRIAL_INTEGRATION.md). Run one scheduler, separate API/web services, a private OpenSandbox host and Postgres. Keep `LAUNCH_ENABLED=false` until the outstanding integration and infrastructure checks pass.
 
 The broader website can share the same Supabase identity and use `@platform/trials`. A single transfer buys one service trial; adding another service does not automatically grant access to it. Native wallet connection requires the selected chain's wallet adapter. No real token transfers have been requested or performed.
+
+## Operations
+
+- [Production Compose](compose.production.yaml) and [runtime preparation](docs/PRODUCTION_RUNTIME.md) describe the dedicated Linux host, gVisor, required firewall, private services and startup checks. This scaffold has not been deployed or security-certified on a production host.
+- [Operations and monitoring guide](docs/OPERATIONS.md), [Prometheus configuration](infra/monitoring/prometheus.yml) and [alert rules](infra/monitoring/alerts.yml) cover private metrics/readiness. The local scrape is verified healthy. Production still needs a private collector, alert routing and on-call ownership.
+- [Backup and recovery guide](docs/BACKUPS.md) and [backup tool](scripts/backup.py) stages encrypted restic backups of the database, manager metadata, home volumes and system images. Its maintenance workflow requires stopped desktops and a stopped API/worker. [Restore drill](scripts/restore_drill.py) has verified an extracted local backup against a fresh disposable database; it does not overwrite live data. A full desktop boot on replacement infrastructure remains untested. Protect the backup password and stable application encryption/signing keys separately.
+
+Local backup tooling is not an off-host production backup policy. Enforced storage quotas, recurring encrypted off-host backups, a full desktop recovery exercise, production isolation testing and external-provider validation remain launch requirements.

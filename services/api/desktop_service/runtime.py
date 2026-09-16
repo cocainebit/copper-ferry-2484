@@ -26,6 +26,8 @@ def connection():
 
 
 async def create(cid, password, snapshot_id=None):
+    from .feature_runtime import resource_for
+
     manager = await SandboxManager.create(connection_config=connection())
     try:
         existing = await manager.list_sandbox_infos(
@@ -43,7 +45,7 @@ async def create(cid, password, snapshot_id=None):
         connection_config=connection(),
         timeout=timedelta(hours=24),
         ready_timeout=timedelta(seconds=120),
-        resource={"cpu": "2", "memory": "4Gi"},
+        resource=resource_for(cid),
         metadata={"agent-desktop-id": cid},
         env={"VNC_PASSWORD": password, "CHROMIUM_DEV_FLAGS": "--no-sandbox" if settings().dev_mode else ""},
         entrypoint=["/opt/desktop/start.sh"],

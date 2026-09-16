@@ -59,7 +59,10 @@ def identity(credentials: HTTPAuthorizationCredentials | None = Depends(bearer))
             algorithms=["ES256", "RS256"],
             audience="authenticated",
             issuer=settings().supabase_url + "/auth/v1",
+            options={"require": ["exp", "iat", "sub", "aud", "iss"]},
         )
+        if claims.get("role") != "authenticated" or not claims.get("sub") or claims.get("is_anonymous", False):
+            raise ValueError("A registered user session is required")
         return {"id": claims["sub"], "email": claims.get("email", ""), "verified": bool(claims.get("email"))}
     except Exception:
         raise HTTPException(401, "Session expired; please sign in again") from None

@@ -1,0 +1,50 @@
+project_id = "agent-desktop-auth"
+
+[api]
+enabled = true
+port = 55321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 55322
+shadow_port = 55320
+major_version = 17
+
+[studio]
+enabled = true
+port = 55323
+api_url = "http://127.0.0.1"
+
+[local_smtp]
+enabled = true
+port = 55324
+smtp_port = 55325
+pop3_port = 55326
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**", "http://127.0.0.1:3000/**"]
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = false
+# The API requires asymmetric ES256/RS256 user tokens. Generate a local
+# signing key with scripts/local-auth-key.py before starting Supabase.
+signing_keys_path = "./signing_keys.json"
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+otp_length = 8
+otp_expiry = 600
+
+[auth.email.template.magic_link]
+subject = "Your desktop sign-in code"
+content_path = "./supabase/templates/sign-in.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm your desktop account"
+content_path = "./supabase/templates/sign-in.html"

@@ -32,7 +32,11 @@ from .db import (
     now,
 )
 from .entitlements import ChainVerifier, activate, balance, create_intent
+from .features import router as features_router
 from .gateway import router as gateway_router
+from .onboarding import router as onboarding_router
+from .operations import requests as request_counts
+from .operations import router as operations_router
 from .security import digest, identity, member, seal
 
 
@@ -294,8 +298,11 @@ def computer_action(
     user=Depends(identity),
     db=Depends(database),
 ):
-    c = computer(db, cid, user, lock=True)
+    c = computer(db, cid, user)
     w = member(db, c.workspace_id, user, lock=True)
+    db.refresh(c, with_for_update=True)
+    if c.status in ("copying", "customizing", "copy_failed"):
+        raise HTTPException(409, "Wait for the desktop copy to finish; failed copies must be deleted")
     active = db.scalar(
         select(Run).where(
             Run.computer_id == cid,
@@ -345,8 +352,11 @@ def computer_action(
 
 @app.delete("/v1/computers/{cid}")
 def delete_computer(cid: str, confirm: str, user=Depends(identity), db=Depends(database)):
-    c = computer(db, cid, user, lock=True)
-    member(db, c.workspace_id, user, owner=True)
+    c = computer(db, cid, user)
+    member(db, c.workspace_id, user, owner=True, lock=True)
+    db.refresh(c, with_for_update=True)
+    if c.status in ("copying", "customizing"):
+        raise HTTPException(409, "Wait for the desktop copy to finish")
     if confirm != c.name:
         raise HTTPException(400, "Type the computer name to confirm deletion")
     c.status = "deleting"
@@ -540,5 +550,15 @@ def entitlements(wid: str, user=Depends(identity), db=Depends(database)):
 
 # Register isolated payment and desktop-gateway modules after core routes.
 
+app.include_router(features_router)
+app.include_router(onboarding_router)
+app.include_router(operations_router)
 app.include_router(billing_router)
 app.include_router(gateway_router)
+
+
+@app.middleware("http")
+async def count_requests(request, call_next):
+    response = await call_next(request)
+    request_counts[str(response.status_code)] += 1
+    return response

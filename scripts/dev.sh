@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 ( cd services/api && .venv/bin/python -m desktop_service.upgrade )
-( cd services/api && .venv/bin/uvicorn desktop_service.main:app --host 127.0.0.1 --port 8000 ) &
+( cd services/api && .venv/bin/uvicorn desktop_service.main:app --host 127.0.0.1 --port 8000 --no-access-log ) &
 api_pid=$!
 ( cd services/api && .venv/bin/python -m desktop_service.worker ) &
 worker_pid=$!

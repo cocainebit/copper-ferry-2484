@@ -1,0 +1,19 @@
+name: agent-desktop-monitoring
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    user: '65534:65534'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ['127.0.0.1:9098:9090']
+    command: ['--config.file=/etc/prometheus/prometheus.yml','--storage.tsdb.path=/prometheus','--storage.tsdb.retention.time=14d']
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./.local/ops-token:/run/secrets/ops-token:ro
+      - metrics:/prometheus
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+volumes:
+  metrics:

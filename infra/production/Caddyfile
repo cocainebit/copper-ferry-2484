@@ -1,0 +1,18 @@
+{$APP_DOMAIN} {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        Referrer-Policy same-origin
+    }
+    @private path /api/v1/ops/* /api/internal/* /internal/*
+    handle @private {
+        respond "Not found" 404
+    }
+    handle_path /api/* {
+        reverse_proxy api:8000
+    }
+    handle {
+        reverse_proxy web:3000
+    }
+}

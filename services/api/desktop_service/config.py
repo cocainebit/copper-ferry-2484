@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     max_desktops: int = 4
     launch_enabled: bool = False
+    ops_token: str = ""
     run_minutes: int = 60
     max_steps: int = 200
     trial_adapter_url: str = ""

@@ -1,0 +1,18 @@
+groups:
+  - name: platform
+    rules:
+      - alert: DesktopAPIUnavailable
+        expr: up{job="agent-desktop"} == 0
+        for: 1m
+        annotations:
+          summary: Desktop API scrape is failing
+      - alert: DesktopWorkerMissing
+        expr: desktop_worker_heartbeat_age_seconds > 30 or desktop_worker_heartbeat_age_seconds < 0
+        for: 1m
+        annotations:
+          summary: Desktop scheduler heartbeat is stale or absent
+      - alert: DesktopProvisioningFailure
+        expr: desktop_computers{status="failed"} > 0
+        for: 5m
+        annotations:
+          summary: At least one desktop failed to provision

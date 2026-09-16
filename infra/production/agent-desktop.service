@@ -1,0 +1,23 @@
+# Install only after operator review on the dedicated Linux host.
+[Unit]
+Description=Agent Desktop production services
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/agent-desktop
+EnvironmentFile=/etc/agent-desktop/production.env
+Environment=PRODUCTION_ISOLATION_ACK=reviewed
+ExecStartPre=/usr/bin/bash /opt/agent-desktop/infra/production/firewall.sh --apply
+ExecStartPre=/usr/bin/bash /opt/agent-desktop/infra/production/check-host.sh
+ExecStart=/usr/bin/docker compose -f compose.production.yaml up --no-build --abort-on-container-failure
+ExecStop=/usr/bin/docker compose -f compose.production.yaml stop
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

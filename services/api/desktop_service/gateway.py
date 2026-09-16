@@ -103,7 +103,7 @@ async def desktop(ws: WebSocket, cid: str, ticket: str):
     finally:
         try:
             await ws.close(code=1000)
-        except RuntimeError:
+        except (RuntimeError, WebSocketDisconnect):
             pass
 
 

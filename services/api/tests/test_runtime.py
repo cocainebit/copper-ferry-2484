@@ -23,7 +23,7 @@ async def test_recover_created_sandbox_without_allocating_twice(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_persistent_volume_creation_and_password(monkeypatch):
+async def test_persistent_volume_creation_and_password(monkeypatch,db):
     monkeypatch.setattr(runtime, "wait_ready", AsyncMock())
     manager = SimpleNamespace(
         list_sandbox_infos=AsyncMock(return_value=SimpleNamespace(sandbox_infos=[])), close=AsyncMock()

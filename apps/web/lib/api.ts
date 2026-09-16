@@ -8,6 +8,12 @@ export const supabase =
       )
     : null;
 export async function token() {
+  if (
+    process.env.NEXT_PUBLIC_DEV_MODE === "true" &&
+    typeof window !== "undefined" &&
+    sessionStorage.getItem("use-local-workspace") === "true"
+  )
+    return "local-development-only";
   if (supabase)
     return (await supabase.auth.getSession()).data.session?.access_token || "";
   return process.env.NEXT_PUBLIC_DEV_MODE === "true"
@@ -24,7 +30,9 @@ export async function api<T = any>(
     headers: {
       "Content-Type": "application/json",
       Authorization: "Bearer " + (await token()),
-      ...(method === "POST" ? { "Idempotency-Key": crypto.randomUUID() } : {}),
+      ...(["POST", "DELETE"].includes(method)
+        ? { "Idempotency-Key": crypto.randomUUID() }
+        : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });

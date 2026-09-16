@@ -2,6 +2,7 @@
 
 from sqlalchemy import text
 
+from . import feature_models  # noqa: F401
 from .db import Base, engine
 
 Base.metadata.create_all(engine)

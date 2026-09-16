@@ -1,0 +1,25 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+# OPENSANDBOX_SERVER_API_KEY overrides this field; generated entrypoint rejects missing key.
+max_sandbox_timeout_seconds = 86400
+[runtime]
+type = "docker"
+execd_image = "opensandbox/execd:v1.1.0"
+[secure_runtime]
+type = "gvisor"
+docker_runtime = "runsc"
+[docker]
+network_mode = "agent-desktop-sandboxes"
+no_new_privileges = true
+pids_limit = 1024
+port_range_min = 40000
+port_range_max = 40199
+drop_capabilities = ["AUDIT_WRITE", "MKNOD", "NET_ADMIN", "NET_RAW", "SYS_ADMIN", "SYS_MODULE", "SYS_PTRACE", "SYS_TIME", "SYS_TTY_CONFIG"]
+[proxy]
+resolve_internal = true
+[store]
+type = "sqlite"
+path = "/data/opensandbox.db"
+[storage]
+allowed_host_paths = ["/nonexistent-host-mounts-disabled"]

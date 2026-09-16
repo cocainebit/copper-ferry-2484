@@ -1,0 +1,17 @@
+# Optional private verifier. Does not enable trials or choose your platform chain.
+services:
+  trial-verifier:
+    build: ./services/trial-verifier
+    env_file: ./services/trial-verifier/.env
+    ports:
+      - "127.0.0.1:8090:8090"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, /app/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

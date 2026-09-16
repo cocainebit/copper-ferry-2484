@@ -54,6 +54,22 @@ test("real API workspace, creation, settings, and billing", async ({
     page.getByRole("heading", { name: "Anthropic API key" }),
   ).toBeVisible();
   await expect(page.getByText("you@localhost")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Desktop customization" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Stopped computer")).toContainText(
+    "Browser test desktop",
+  );
+  await page.getByLabel("CPU", { exact: true }).selectOption("1");
+  await page.getByLabel("Memory", { exact: true }).selectOption("2");
+  await page.getByRole("button", { name: "Save resources" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Resources saved for the next start.",
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByLabel("CPU", { exact: true })).toHaveValue("1");
+  await expect(page.getByLabel("Memory", { exact: true })).toHaveValue("2");
   await page.getByRole("button", { name: "Billing", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "A little room to grow." }),
