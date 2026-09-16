@@ -16,7 +16,6 @@ from sqlalchemy.exc import IntegrityError
 from .billing import router as billing_router
 from .config import settings
 from .db import (
-    Base,
     Computer,
     Credential,
     Entitlement,
@@ -24,11 +23,11 @@ from .db import (
     Invitation,
     Member,
     Run,
+    ServiceHeartbeat,
     Session,
     TrialIntent,
     Workspace,
     database,
-    engine,
     event,
     now,
 )
@@ -40,7 +39,9 @@ from .security import digest, identity, member, seal
 @asynccontextmanager
 async def lifespan(app):
     if settings().dev_mode:
-        Base.metadata.create_all(engine)
+        from .upgrade import upgrade
+
+        upgrade()
         with Session() as db:
             if not db.get(Workspace, "local-workspace"):
                 db.add(Workspace(id="local-workspace", name="Your workspace", subscription="active", included=6000))
@@ -304,6 +305,9 @@ def computer_action(
     if action == "start":
         if c.status in ("running", "starting"):
             return public(c)
+        heartbeat = db.get(ServiceHeartbeat, "desktop-worker")
+        if not heartbeat or now() - heartbeat.updated_at > timedelta(seconds=30):
+            raise HTTPException(503, "Desktop service is unavailable. Please try again shortly.")
         if c.status in ("stopping", "deleting"):
             raise HTTPException(409, "Wait for the computer to stop")
         if balance(db, w) <= 0:

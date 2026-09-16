@@ -2,7 +2,7 @@
 
 A cloud-computer service for AI agents, with a live desktop viewer and a reusable token-holder trial service for a broader platform.
 
-**Status:** local MVP implemented. UI, API and mocked runtime tests pass. Public checkout is disabled. Live desktop integration and external providers are not yet verified; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
+**Status:** the local platform runs real Linux desktops with live viewing, browser control and persistent home/system customization. Public checkout is disabled. Anthropic BYOK and external providers still need credentials; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
 
 ## What is here
 
@@ -23,6 +23,8 @@ infra/desktop/              Linux desktop image, visible Chromium and VNC
 infra/Caddyfile              Same-origin HTTPS and WebSocket reverse proxy
 scripts/                    Local startup, isolated browser API, desktop smoke test
 ```
+
+Customer guides: [getting started](docs/GETTING_STARTED.md) and [customizing desktops](docs/CUSTOMIZING_DESKTOPS.md).
 
 Upstream fork: https://github.com/cocainebit/OpenSandbox. Keep it alongside this repository as `../OpenSandbox`. The Python SDK is pinned to commit `f7e32e5f4b1d77502db54ffdbb21eb7d7f57ce96`. The application is separate from the Apache-2.0 upstream fork.
 
@@ -86,7 +88,7 @@ cd services/api
 .venv/bin/python ../../scripts/smoke_desktop.py
 ```
 
-The smoke test creates a dedicated disposable computer, checks screenshot capture, the live VNC handshake, visible Chromium and persistent files across restarts, then erases that computer's files. It has not passed on this machine because Docker currently returns `EOF`.
+The smoke test creates a dedicated disposable computer, checks screenshot capture, the live VNC handshake, visible Chromium and persistent files across restarts, then erases that computer's files. It now passes on this machine, including readiness checks after restoring the system snapshot.
 
 ## Deploying and integrating the main website
 

@@ -14,7 +14,7 @@ from sqlalchemy import select, text
 
 from . import runtime
 from .config import settings
-from .db import Computer, Credential, Run, Session, Workspace, engine, event, now
+from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .entitlements import balance, charge
 from .security import seal, unseal
 
@@ -276,7 +276,7 @@ async def reconcile():
                     if not c.vnc_secret:
                         c.vnc_secret = seal(secrets.token_urlsafe(18))
                         db.commit()
-                    c.sandbox_id = await runtime.create(c.id, unseal(c.vnc_secret))
+                    c.sandbox_id = await runtime.create(c.id, unseal(c.vnc_secret), c.system_snapshot_id)
                     c.status = "running"
                     c.last_active = now()
                     c.metered_at = now()
@@ -300,9 +300,22 @@ async def reconcile():
                     if leased:
                         continue
                     if c.sandbox_id:
-                        await runtime.stop(c.sandbox_id)
+                        if c.status == "stopping":
+                            previous = c.system_snapshot_id
+                            c.system_snapshot_id = await runtime.save_system(c.sandbox_id)
+                            db.commit()
+                            await runtime.stop(c.sandbox_id)
+                            c.sandbox_id = None
+                            db.commit()
+                            if previous:
+                                await runtime.delete_system(previous)
+                        else:
+                            await runtime.stop(c.sandbox_id)
                     if c.status == "deleting":
                         await runtime.wipe(c.id)
+                        if c.system_snapshot_id:
+                            await runtime.delete_system(c.system_snapshot_id)
+                            c.system_snapshot_id = None
                     c.sandbox_id = None
                     c.status = "deleted" if c.status == "deleting" else "stopped"
                     c.controller = "agent"
@@ -326,12 +339,23 @@ async def reconcile():
                 db.commit()
 
 
+async def scheduler_heartbeat():
+    while True:
+        with Session() as db:
+            heartbeat = db.get(ServiceHeartbeat, "desktop-worker") or ServiceHeartbeat(id="desktop-worker")
+            heartbeat.updated_at = now()
+            db.add(heartbeat)
+            db.commit()
+        await asyncio.sleep(5)
+
+
 async def main():
     logging.basicConfig(level=logging.INFO)
     lock = engine.connect()
     if engine.dialect.name == "postgresql" and not lock.execute(text("SELECT pg_try_advisory_lock(8118026)")).scalar():
         raise RuntimeError("Another scheduler already owns the lifecycle lock")
     tasks = set()
+    health_task = asyncio.create_task(scheduler_heartbeat())
     try:
         while True:
             await reconcile()
@@ -353,6 +377,8 @@ async def main():
                     task.add_done_callback(tasks.discard)
             await asyncio.sleep(2)
     finally:
+        health_task.cancel()
+        await asyncio.gather(health_task, return_exceptions=True)
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)

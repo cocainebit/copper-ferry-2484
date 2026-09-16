@@ -45,7 +45,7 @@ test("real API workspace, creation, settings, and billing", async ({
   await dialog.getByLabel("Computer name").fill("Browser test desktop");
   await dialog.getByRole("button", { name: "Create computer" }).click();
   await expect(
-    page.getByRole("heading", { name: "Making room for your ideas…" }),
+    page.getByRole("heading", { name: "Your computer is taking a breather." }),
   ).toBeVisible();
   await expect(page.getByLabel("Task instructions")).toBeVisible();
   await page.screenshot({ path: "test-results/workspace.png", fullPage: true });

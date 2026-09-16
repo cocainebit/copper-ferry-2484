@@ -13,6 +13,7 @@ services:
       interval: 3s
       retries: 15
   opensandbox:
+    network_mode: bridge
     build:
       context: ../OpenSandbox/server
     ports: ['127.0.0.1:8080:8080']

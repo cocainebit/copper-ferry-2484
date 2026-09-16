@@ -23,6 +23,7 @@ def db(tmp_path, monkeypatch):
 
     app.dependency_overrides[models.database] = override
     with factory() as session:
+        session.add(models.ServiceHeartbeat(id="desktop-worker"))
         session.add(models.Workspace(id="w", name="Test", subscription="active", included=6000))
         session.add(models.Workspace(id="other", name="Other", subscription="active", included=6000))
         session.flush()

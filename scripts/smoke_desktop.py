@@ -16,6 +16,7 @@ async def main():
     cid = str(uuid4())
     password = secrets.token_urlsafe(18)
     sid = None
+    snapshot_id = None
     try:
         sid = await runtime.create(cid, password)
         await runtime.execute(sid, "printf persistence-test > /home/desktop/smoke.txt")
@@ -36,15 +37,23 @@ async def main():
                 await asyncio.sleep(2)
         browser = await runtime.tool(sid, "browser", {"action": "inspect"})
         assert "url" in browser
+        await runtime.execute(sid, "apt-get update -qq && apt-get install -y --no-install-recommends jq")
+        installed_version = await runtime.execute(sid, "jq --version")
+        await runtime.execute(sid, "printf customized > /usr/local/share/desktop-customization-test")
+        snapshot_id = await runtime.save_system(sid)
         await runtime.stop(sid)
         sid = None
-        sid = await runtime.create(cid, password)
+        sid = await runtime.create(cid, password, snapshot_id)
+        assert await runtime.execute(sid, "cat /usr/local/share/desktop-customization-test") == "customized"
+        assert await runtime.execute(sid, "jq --version") == installed_version
         assert await runtime.execute(sid, "cat /home/desktop/smoke.txt") == "persistence-test"
-        print("PASS: screenshot, live VNC handshake, visible browser, stop/restart persistence")
+        print("PASS: screenshot, live VNC handshake, visible browser, stop/restart home and system persistence")
     finally:
         if sid:
             await runtime.stop(sid)
         await runtime.wipe(cid)
+        if snapshot_id:
+            await runtime.delete_system(snapshot_id)
 
 
 if __name__ == "__main__":

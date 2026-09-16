@@ -9,6 +9,7 @@ from desktop_service import runtime
 
 @pytest.mark.asyncio
 async def test_recover_created_sandbox_without_allocating_twice(monkeypatch):
+    monkeypatch.setattr(runtime, "wait_ready", AsyncMock())
     manager = SimpleNamespace(
         list_sandbox_infos=AsyncMock(return_value=SimpleNamespace(sandbox_infos=[SimpleNamespace(id="recovered")])),
         close=AsyncMock(),
@@ -23,6 +24,7 @@ async def test_recover_created_sandbox_without_allocating_twice(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_persistent_volume_creation_and_password(monkeypatch):
+    monkeypatch.setattr(runtime, "wait_ready", AsyncMock())
     manager = SimpleNamespace(
         list_sandbox_infos=AsyncMock(return_value=SimpleNamespace(sandbox_infos=[])), close=AsyncMock()
     )
@@ -104,3 +106,16 @@ def test_file_download_cannot_escape_home(path):
     assert result.returncode != 0
     assert "Path must stay inside Home" in result.stderr
     assert not result.stdout
+
+
+@pytest.mark.asyncio
+async def test_snapshot_waits_for_ready(monkeypatch):
+    manager = SimpleNamespace(
+        create_snapshot=AsyncMock(return_value=SimpleNamespace(id="snap", status=SimpleNamespace(state="Pending"))),
+        get_snapshot=AsyncMock(return_value=SimpleNamespace(id="snap", status=SimpleNamespace(state="Ready"))),
+        close=AsyncMock(),
+    )
+    monkeypatch.setattr(runtime.SandboxManager, "create", AsyncMock(return_value=manager))
+    monkeypatch.setattr(runtime.asyncio, "sleep", AsyncMock())
+    assert await runtime.save_system("sandbox") == "snap"
+    manager.get_snapshot.assert_awaited_once_with("snap")

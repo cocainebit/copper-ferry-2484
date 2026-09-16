@@ -20,6 +20,12 @@ class Base(DeclarativeBase):
     pass
 
 
+class ServiceHeartbeat(Base):
+    __tablename__ = "service_heartbeats"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 class Workspace(Base):
     __tablename__ = "workspaces"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=uid)
@@ -69,6 +75,7 @@ class Computer(Base):
     name: Mapped[str] = mapped_column(String(80))
     status: Mapped[str] = mapped_column(String, default="stopped")
     sandbox_id: Mapped[str | None] = mapped_column(String)
+    system_snapshot_id: Mapped[str | None] = mapped_column(String)
     vnc_secret: Mapped[str | None] = mapped_column(Text)
     controller: Mapped[str] = mapped_column(String, default="agent")
     last_active: Mapped[datetime] = mapped_column(DateTime, default=now)

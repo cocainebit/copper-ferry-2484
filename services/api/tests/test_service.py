@@ -309,3 +309,15 @@ def test_stop_and_delete_retain_inflight_lease(client, db, action):
     assert response.status_code == 200
     db.refresh(r)
     assert r.lease == "inflight"
+
+
+def test_start_reports_offline_worker(client, db):
+    from desktop_service.db import ServiceHeartbeat
+
+    cid = create(client).json()["id"]
+    db.delete(db.get(ServiceHeartbeat, "desktop-worker"))
+    db.commit()
+    result = client.post(f"/v1/computers/{cid}/actions/start")
+    assert result.status_code == 503
+    db.refresh(db.get(Computer, cid))
+    assert db.get(Computer, cid).status == "stopped"

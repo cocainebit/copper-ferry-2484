@@ -5,6 +5,6 @@ RUN python3 -m venv /opt/tools && /opt/tools/bin/pip install --no-cache-dir play
 RUN groupadd -g 1000 desktop && useradd -m -u 1000 -g 1000 -G audio,video desktop && mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 COPY start.sh tools.py wallpaper.svg /opt/desktop/
 RUN chmod +x /opt/desktop/start.sh && mkdir -p /opt/desktop/defaults && chown -R desktop:desktop /home/desktop
-USER desktop
+USER root
 WORKDIR /home/desktop
 CMD ["/opt/desktop/start.sh"]

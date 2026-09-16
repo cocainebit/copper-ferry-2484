@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import shlex
@@ -24,7 +25,7 @@ def connection():
     )
 
 
-async def create(cid, password):
+async def create(cid, password, snapshot_id=None):
     manager = await SandboxManager.create(connection_config=connection())
     try:
         existing = await manager.list_sandbox_infos(
@@ -33,17 +34,18 @@ async def create(cid, password):
         if len(existing.sandbox_infos) > 1:
             raise RuntimeError("Multiple desktops found; operator reconciliation required")
         if existing.sandbox_infos:
+            await wait_ready(existing.sandbox_infos[0].id)
             return existing.sandbox_infos[0].id
     finally:
         await manager.close()
     sb = await Sandbox.create(
-        settings().desktop_image,
+        **({"snapshot_id": snapshot_id} if snapshot_id else {"image": settings().desktop_image}),
         connection_config=connection(),
         timeout=timedelta(hours=24),
         ready_timeout=timedelta(seconds=120),
         resource={"cpu": "2", "memory": "4Gi"},
         metadata={"agent-desktop-id": cid},
-        env={"VNC_PASSWORD": password},
+        env={"VNC_PASSWORD": password, "CHROMIUM_DEV_FLAGS": "--no-sandbox" if settings().dev_mode else ""},
         entrypoint=["/opt/desktop/start.sh"],
         volumes=[
             Volume(
@@ -52,6 +54,7 @@ async def create(cid, password):
         ],
     )
     await sb.close()
+    await wait_ready(sb.id)
     return sb.id
 
 
@@ -136,3 +139,41 @@ async def endpoint(sid, port):
         return result.endpoint, result.headers or {}
     finally:
         await sb.close()
+
+
+async def save_system(sid):
+    manager = await SandboxManager.create(connection_config=connection())
+    try:
+        snapshot = await manager.create_snapshot(sid)
+        for _ in range(120):
+            state = snapshot.status.state.upper()
+            if state == "READY":
+                return snapshot.id
+            if state == "FAILED":
+                raise RuntimeError("System snapshot failed; computer was not destroyed")
+            await asyncio.sleep(1)
+            snapshot = await manager.get_snapshot(snapshot.id)
+        raise RuntimeError("System snapshot timed out; computer was not destroyed")
+    finally:
+        await manager.close()
+
+
+async def delete_system(snapshot_id):
+    manager = await SandboxManager.create(connection_config=connection())
+    try:
+        await manager.delete_snapshot(snapshot_id)
+    finally:
+        await manager.close()
+
+
+async def wait_ready(sid):
+    for _ in range(30):
+        try:
+            await execute(
+                sid,
+                "python3 -c \"import socket,urllib.request; socket.create_connection(('127.0.0.1',6080),2).close(); urllib.request.urlopen('http://127.0.0.1:9222/json/version',timeout=2).read()\"",
+            )
+            return
+        except Exception:
+            await asyncio.sleep(1)
+    raise RuntimeError("Desktop display or browser did not become ready")

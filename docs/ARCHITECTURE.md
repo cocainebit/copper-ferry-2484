@@ -26,7 +26,7 @@ The browser sees a continuous VNC stream, not a screenshot slideshow. The agent 
 
 Viewer tickets expire after 60 seconds. Connections recheck membership and controller state. The public browser never receives OpenSandbox credentials. The configured public origin must match the browser origin. The reverse proxy must support WebSockets and must not log viewer-ticket query strings.
 
-Home directories and Chromium profiles persist across stop/start. Processes and RAM do not. Named volumes remain on the host; deleting a computer stops it and uses a short-lived cleanup sandbox to erase its home. Empty Docker volumes can be reclaimed by an operator. This is not a secure physical-media erasure guarantee.
+Home directories and Chromium profiles persist in a volume. Before a normal stop, the worker creates an OpenSandbox system snapshot and waits for it to become Ready; the next start restores that snapshot, preserving installed applications and system configuration. Processes and RAM do not persist. If snapshot creation fails, the worker retains the existing computer and reports an error. Unsaved system changes can still be lost on an abrupt host/sandbox failure; this is not a backup. The first boot sets a default theme; later boots preserve user preferences. Named volumes remain on the host; deleting a computer stops it and uses a short-lived cleanup sandbox to erase its home. Empty Docker volumes can be reclaimed by an operator. This is not a secure physical-media erasure guarantee.
 
 ## Identity and credits
 
