@@ -1,0 +1,30 @@
+name: agent-desktop
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: desktop
+      POSTGRES_USER: desktop
+      POSTGRES_PASSWORD: local-desktop-password
+    ports: ['127.0.0.1:54329:5432']
+    volumes: ['postgres:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U desktop']
+      interval: 3s
+      retries: 15
+  opensandbox:
+    build:
+      context: ../OpenSandbox/server
+    ports: ['127.0.0.1:8080:8080']
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/opensandbox.local.toml:/etc/opensandbox/config.toml:ro
+      - sandbox-store:/data
+    extra_hosts: ['host.docker.internal:host-gateway']
+  desktop-image:
+    profiles: ['build']
+    build: ./infra/desktop
+    image: agent-desktop:local
+volumes:
+  postgres:
+  sandbox-store:

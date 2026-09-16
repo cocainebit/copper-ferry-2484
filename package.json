@@ -1,0 +1,21 @@
+{
+  "name": "agent-desktop",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/platform-trials"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspace apps/web",
+    "format:check": "prettier --check \"apps/web/{app,components,lib,tests}/**/*.{ts,tsx,css}\" \"packages/**/*.ts\""
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
+  }
+}

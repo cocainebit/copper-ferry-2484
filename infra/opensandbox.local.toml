@@ -1,0 +1,20 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+api_key = "local-sandbox-key-not-for-production"
+max_sandbox_timeout_seconds = 86400
+[runtime]
+type = "docker"
+execd_image = "opensandbox/execd:v1.1.0"
+[docker]
+network_mode = "bridge"
+no_new_privileges = true
+pids_limit = 1024
+drop_capabilities = ["NET_ADMIN", "NET_RAW", "SYS_ADMIN", "SYS_PTRACE", "SYS_MODULE"]
+[proxy]
+resolve_internal = true
+[store]
+type = "sqlite"
+path = "/data/opensandbox.db"
+[storage]
+allowed_host_paths = ["/nonexistent-host-mounts-disabled"]
