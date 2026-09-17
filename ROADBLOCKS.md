@@ -52,7 +52,7 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 
 ## Cubicle crypto implementation — September 17
 
-- Product name is **Cubicle**; existing `agent-desktop` trial identifiers remain for compatibility. The broader platform name and repository are still unspecified.
+- Product name is **Cubicle**; the platform it sits on is **Instance** (instanceOS), shared with Floatlane and Plotform (owner decision, September 17, 2026). Existing `agent-desktop` identifiers stay for compatibility. Domain, repository and the trial token are still undecided.
 - Shared integer micro-USDC ledger, server-priced cross-service debits, wallet checkout, invoices, receipts/activity history, dedicated payment worker, monitoring and reconciliation tools are implemented.
 - Real local test-chain verification passes from browser signature through official x402 facilitator settlement to independent receipt verification and exactly-once credit. A separate API smoke proves lost-response recovery, two-service charging and prepaid desktop access. Tests use fake Anvil tokens and separate disposable databases; existing user balances are untouched.
 - Initial supported payment scope: native USDC on Base/Base Sepolia, EOA EIP-3009 signatures and our invoice-nonce client extension. Solana, arbitrary payment tokens, smart-contract wallets, Permit2 and automatic renewals are not implemented. Generic x402 clients must use the invoice nonce; this is not a claim of universal client compatibility.

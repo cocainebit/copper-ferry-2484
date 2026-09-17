@@ -1,6 +1,6 @@
 # Cubicle
 
-Cubicle is the cloud-computer service for AI agents in the broader platform, with a live desktop viewer and a reusable token-holder trial service. The product name was confirmed by the owner on September 16, 2026; the broader platform name is still undecided.
+Cubicle is the cloud-computer service for AI agents on **Instance** (instanceOS), the platform it shares with Floatlane and Plotform. It has a live desktop viewer and a reusable token-holder trial service. Both names were confirmed by the owner: Cubicle on September 16, 2026 and Instance on September 17, 2026.
 
 **Status:** the local platform runs real Linux desktops with persistent home/system customization and PostgreSQL. A local Supabase stack supports tested email-code authentication. Resource controls, independent clones and private system templates are implemented; use the real integration checks below to verify the deployed runtime. Prepaid USDC/x402 invoices and a shared workspace balance are implemented, but real payments remain disabled until the rail is configured and validated. Anthropic, hosted OAuth/mail, the production payment rail and the actual platform token still need configuration and end-to-end validation; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
 
