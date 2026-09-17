@@ -2638,3 +2638,48 @@ button.file-row:hover {
   font-size: 11px;
   color: #a5b8ab;
 }
+
+.runtime-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid #242426;
+  border-radius: 8px;
+  padding: 7px 11px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #8a8a92;
+  background: #0f0f11;
+}
+.runtime-strip.due {
+  border-color: #5a4a2f;
+  color: #d8c69a;
+}
+.runtime-strip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.runtime-strip a,
+.runtime-strip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #a5b8ab;
+  border: 1px solid #303034;
+  border-radius: 6px;
+  padding: 4px 9px;
+  background: transparent;
+  font-size: 10px;
+}
+.pass-active.pending {
+  border-color: #5a4a2f;
+  color: #d8c69a;
+  justify-content: space-between;
+}
+.pass-active a {
+  color: #cfe0d4;
+  text-decoration: underline;
+}

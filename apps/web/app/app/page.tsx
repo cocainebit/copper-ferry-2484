@@ -57,6 +57,7 @@ import { TemplateRegistry } from "@/components/template-registry";
 import { AutomationsPanel } from "@/components/automations";
 import { Fleet } from "@/components/fleet";
 import { Passes } from "@/components/passes";
+import { RuntimeStrip } from "@/components/runtime-strip";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -689,6 +690,10 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
+              <RuntimeStrip
+                computer={computer}
+                owner={workspace.role === "owner"}
+              />
               <Viewer
                 computer={computer}
                 onStart={() => action("start")}

@@ -11,6 +11,7 @@ from . import (
     feature_models,  # noqa: F401
     payment_models,  # noqa: F401
     plans,  # noqa: F401
+    runtime_billing,  # noqa: F401
     screens,  # noqa: F401
     secrets_vault,  # noqa: F401
     template_registry,  # noqa: F401
@@ -30,6 +31,16 @@ def upgrade():
     if "pty_secret" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN pty_secret TEXT"))
+
+    if "plan_passes" in inspect(engine).get_table_names():
+        names = {column["name"] for column in inspect(engine).get_columns("plan_passes")}
+        if "status" not in names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE plan_passes ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'")
+                )
+                connection.execute(text("ALTER TABLE plan_passes ADD COLUMN charge_id VARCHAR(80)"))
+                connection.execute(text("ALTER TABLE plan_passes ADD COLUMN pay_url TEXT"))
 
     for table in ("desktop_profiles", "desktop_templates"):
         names = {column["name"] for column in inspect(engine).get_columns(table)}

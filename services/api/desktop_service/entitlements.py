@@ -202,9 +202,12 @@ def balance(db, w):
 
 
 def can_run(db, w):
-    """A workspace may run computers on a live pass even with no credits left."""
-    from . import plans
+    """A workspace may run computers on a live pass, on platform charges, or on its own credits."""
+    from . import plans, platform_client
 
+    if platform_client.configured():
+        # Runtime is bought per hour as it is used; nothing needs to be held up front.
+        return True
     return plans.active(db, w.id) is not None or balance(db, w) > 0
 
 

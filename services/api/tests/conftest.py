@@ -10,6 +10,15 @@ from desktop_service import db as models
 from desktop_service.main import app
 
 
+@pytest.fixture(autouse=True)
+def isolated_platform(monkeypatch):
+    """Tests never inherit the developer's platform configuration from .env."""
+    from desktop_service.config import settings
+
+    monkeypatch.setattr(settings(), "platform_url", "")
+    monkeypatch.setattr(settings(), "platform_service_token", "")
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     engine = models.make_engine("sqlite:///" + str(tmp_path / "test.db"))

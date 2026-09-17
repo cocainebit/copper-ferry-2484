@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from . import plans, providers
+from . import plans, providers, runtime_billing
 from .api_keys import router as api_keys_router
 from .apps import router as apps_router
 from .automations import router as automations_router
@@ -621,6 +621,7 @@ app.include_router(screens_router)
 app.include_router(fleet_router)
 app.include_router(providers.router)
 app.include_router(plans.router)
+app.include_router(runtime_billing.router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

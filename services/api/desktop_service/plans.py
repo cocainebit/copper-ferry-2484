@@ -13,10 +13,10 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, ForeignKey, String, select
+from sqlalchemy import DateTime, ForeignKey, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
-from . import platform_credits
+from . import platform_client, platform_credits
 from .config import settings
 from .db import Base, database, now, uid
 from .security import identity, member
@@ -65,6 +65,10 @@ class Pass(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     price_micro_usdc: Mapped[int] = mapped_column(default=0)
+    # Platform billing: a pass is pending until its charge is paid, then it starts.
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
+    charge_id: Mapped[str | None] = mapped_column(String(80))
+    pay_url: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
@@ -92,8 +96,36 @@ def public(plan):
 def active(db, wid):
     """The pass covering this workspace right now, or None."""
     return db.scalar(
-        select(Pass).where(Pass.workspace_id == wid, Pass.expires_at > now()).order_by(Pass.expires_at.desc()).limit(1)
+        select(Pass)
+        .where(Pass.workspace_id == wid, Pass.status == "active", Pass.expires_at > now())
+        .order_by(Pass.expires_at.desc())
+        .limit(1)
     )
+
+
+def settle_pending(db, wid):
+    """Activate passes whose platform charge has been paid; drop the ones that expired unpaid."""
+    changed = False
+    for row in db.scalars(select(Pass).where(Pass.workspace_id == wid, Pass.status == "pending")):
+        if not row.charge_id:
+            continue
+        try:
+            charge = platform_client.get_charge(row.charge_id)
+        except platform_client.PlatformError:
+            continue
+        status = (charge or {}).get("status")
+        if status == "paid":
+            plan = BY_ID.get(row.plan_id)
+            current = active(db, wid)
+            row.starts_at = current.expires_at if current else now()
+            row.expires_at = row.starts_at + timedelta(days=plan["period_days"] if plan else 1)
+            row.status = "active"
+            changed = True
+        elif status in ("expired", "failed"):
+            row.status = "cancelled"
+            changed = True
+    if changed:
+        db.commit()
 
 
 def plan_of(db, wid):
@@ -129,6 +161,9 @@ def pass_public(row):
         "id": row.id,
         "plan_id": row.plan_id,
         "plan_name": plan.get("name", row.plan_id),
+        "status": row.status,
+        "charge_id": row.charge_id,
+        "pay_url": row.pay_url,
         "starts_at": row.starts_at,
         "expires_at": row.expires_at,
         "price_micro_usdc": row.price_micro_usdc,
@@ -154,6 +189,8 @@ def catalog():
 @router.get("/workspaces/{wid}/pass")
 def current_pass(wid: str, user=Depends(identity), db=Depends(database)):
     member(db, wid, user)
+    if platform_client.configured():
+        settle_pending(db, wid)
     row = active(db, wid)
     history = db.scalars(select(Pass).where(Pass.workspace_id == wid).order_by(Pass.created_at.desc()).limit(10)).all()
     return {"active": pass_public(row) if row else None, "history": [pass_public(p) for p in history]}
@@ -171,6 +208,8 @@ def buy(
     plan = BY_ID.get(body.plan_id)
     if not plan:
         raise HTTPException(404, "Unknown plan")
+    if platform_client.configured():
+        return buy_with_charge(db, wid, plan, idempotency_key, user)
     price = price_of(plan["id"])
     if price is None:
         raise HTTPException(409, "This plan has no price yet; it cannot be bought")
@@ -191,6 +230,56 @@ def buy(
         price_micro_usdc=price,
         created_by=user["id"],
     )
+    db.add(row)
+    db.commit()
+    return pass_public(row)
+
+
+def platform_sku(plan_id):
+    return f"cubicle.pass.{plan_id}"
+
+
+def buy_with_charge(db, wid, plan, idempotency_key, user):
+    """Platform billing: one charge per pass. The period starts when the charge is paid."""
+    sku = platform_sku(plan["id"])
+    key = f"pass:{wid}:{idempotency_key}"
+    existing = db.get(Pass, key)
+    if existing:
+        settle_pending(db, wid)
+        return pass_public(db.get(Pass, key))
+    row = Pass(
+        id=key,
+        workspace_id=wid,
+        plan_id=plan["id"],
+        starts_at=now(),
+        expires_at=now(),
+        created_by=user["id"],
+        status="pending",
+    )
+    try:
+        if platform_client.price_for(sku) is None:
+            row.status = "active"
+            current = active(db, wid)
+            row.starts_at = current.expires_at if current else now()
+            row.expires_at = row.starts_at + timedelta(days=plan["period_days"])
+        else:
+            result = platform_client.create_charge(
+                sku,
+                f"workspace:{wid}:pass:{plan['id']}:{idempotency_key}",
+                idempotency_key=key,
+                description=f"Cubicle {plan['name']}",
+                organization_id=wid,
+            )
+            if result.get("free"):
+                row.status = "active"
+                row.expires_at = row.starts_at + timedelta(days=plan["period_days"])
+            else:
+                charge = result.get("charge") or {}
+                row.charge_id = charge.get("id")
+                row.pay_url = result.get("payUrl")
+                row.price_micro_usdc = charge.get("amountMicro") or 0
+    except platform_client.PlatformError as exc:
+        raise HTTPException(503, f"The payment service is unavailable: {exc}") from None
     db.add(row)
     db.commit()
     return pass_public(row)

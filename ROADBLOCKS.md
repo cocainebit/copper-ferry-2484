@@ -123,3 +123,12 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - Prices are unset in code. Set them as `PLATFORM_SERVICE_PRICES` SKUs `cubicle-pass-day` and `cubicle-pass-month` (micro-USDC); until then the plans are listed as not for sale and the dashboard shows "price not set". The per-minute rate remains the reviewed-but-provisional 3,334 micro-USDC.
 - Open pricing questions for M1: the actual numbers, whether an annual pass exists, and whether the token-holder trial becomes a pass variant.
 - When the shared platform ledger takes over, plan purchases need their own SKUs there too (`cubicle.pass.day`, `cubicle.pass.month`) alongside the per-minute `cubicle.minute.*` SKUs.
+
+## Platform billing v0.2 (September 17, 2026)
+
+- The platform dropped balances: pay per action, one charge per payable thing, no recurring anything. Cubicle now sells runtime as hour blocks per computer (SKU per resource tier) plus day and monthly passes, each one charge. Owner decisions: hour blocks plus passes, and warn-then-stop when the next block is unpaid.
+- Configuration: `PLATFORM_URL` and `PLATFORM_SERVICE_TOKEN` (service token from `pnpm admin service create cubicle cubicle`, stored in the gitignored `.env`). Unset means Cubicle keeps its own credit ledger and per-minute metering.
+- SKUs needing prices before anyone is charged: `cubicle.hour.cpu1-mem2`, `cubicle.hour.cpu2-mem4` (and `-gpu` variants when GPU hosts exist), `cubicle.pass.day`, `cubicle.pass.month`. Unpriced means free.
+- Platform behaviour to know: creating any charge fails with 503 while the platform has no payment options configured, including for unpriced SKUs, so Cubicle checks `/internal/v1/prices` first and only asks for a charge when the SKU is priced. Reported to the platform session.
+- Failure policy: a platform outage or misconfiguration never stops or fails a running desktop. It keeps running, records one event, and retries. That is deliberate and means an outage can give away runtime.
+- Not done: identity cutover (JWKS in `security.identity`), mapping workspaces to platform organizations, and remapping stored user ids. The credit ledger and Cubicle's own x402 rail stay until then.

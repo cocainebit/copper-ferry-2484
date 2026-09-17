@@ -27,6 +27,8 @@ type PassInfo = {
   plan_name: string;
   starts_at: string;
   expires_at: string;
+  status?: string;
+  pay_url?: string | null;
   includes: Record<string, number | boolean | null>;
 };
 
@@ -39,6 +41,7 @@ export function Passes({
 }) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [current, setCurrent] = useState<PassInfo | null>(null);
+  const [pending, setPending] = useState<PassInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const load = useCallback(async () => {
@@ -61,9 +64,17 @@ export function Passes({
         "POST",
         { plan_id: plan.id },
       );
-      setMessage(
-        `${bought.plan_name} active until ${new Date(bought.expires_at + "Z").toLocaleString()}.`,
-      );
+      if (bought.status === "pending" && bought.pay_url) {
+        setPending(bought);
+        setMessage(
+          `${bought.plan_name} is waiting for payment. It starts the moment the charge is paid.`,
+        );
+      } else {
+        setPending(null);
+        setMessage(
+          `${bought.plan_name} active until ${new Date(bought.expires_at + "Z").toLocaleString()}.`,
+        );
+      }
       await load();
     } catch (e) {
       setMessage((e as Error).message);
@@ -102,6 +113,16 @@ export function Passes({
             {String(current.includes.saved_computers)} saved · up to{" "}
             {String(current.includes.max_storage_gib)} GiB disks
           </span>
+        </div>
+      )}
+      {pending?.pay_url && (
+        <div className="pass-active pending">
+          <span>
+            <strong>{pending.plan_name}</strong> is waiting for payment.
+          </span>
+          <a href={pending.pay_url} target="_blank" rel="noreferrer">
+            Open the payment sheet
+          </a>
         </div>
       )}
       <div className="apps-grid">

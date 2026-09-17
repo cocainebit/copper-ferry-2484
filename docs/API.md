@@ -183,9 +183,22 @@ The dashboard viewer's speaker button streams the desktop's audio. Programmatic 
 
 `GET /v1/platform/capabilities` lists operating systems and GPUs with availability, the reason when unavailable, and what each OS supports. Linux is always available. Windows (OpenSandbox's Windows profile, KVM hosts only) and GPUs (NVIDIA hosts only) appear once operators enable them; macOS is not offered because no Apple-hardware provider exists. Create with `os` and `gpu` on `POST /v1/workspaces/{id}/computers`; unavailable choices fail with 409 before anything is stored. Windows computers support the viewer and lifecycle automations only.
 
+## Runtime billing
+
+Cubicle bills runtime two ways, both as single payable actions on the Instance platform (SPEC v0.2: pay per action, no balance anywhere):
+
+- **Hours.** A running computer is covered by a paid hour for its resource tier (`cubicle.hour.cpu2-mem4` and so on). A few minutes before the hour ends Cubicle asks the platform for the next charge and shows its payment link in the dashboard and in the computer's events. If that charge is unpaid when the hour ends, the computer stops and its files are kept.
+- **Passes.** A day or monthly pass is one charge that covers every computer inside its limits for the period. It never renews itself; buying again extends from the current expiry.
+
+`GET /v1/computers/{id}/runtime` reports `billing` (`platform` or `credits`), `covered_until`, `covered_by` (`pass` or `hour`), the next charge with its `pay_url`, and recent hours. `POST /v1/computers/{id}/runtime/hours` (owner, `manage` scope) opens the next hour's charge early so a payer can settle it before the desktop stops.
+
+A person pays on the platform's payment sheet; an agent pays the same charge over x402 with no browser, using the charge's public payment URL. Charges are keyed by subject (`desktop:<computer id>:<hour start>`, `workspace:<id>:pass:<plan>:<key>`), so a retry never charges twice.
+
+**When a SKU has no price, the action is free**: a deployment with no prices set runs normally and asks nobody to pay. When the platform is not configured at all, Cubicle falls back to its own per-minute credit ledger. If the platform is configured but unreachable or misconfigured, running computers keep running and say so; they are never failed or stopped because billing is down.
+
 ## Passes and pay as you go
 
-Cubicle bills two ways at once, both drawing on prepaid USDC credits:
+On a deployment without the Instance platform, Cubicle bills from its own prepaid USDC credits:
 
 - **Pay as you go.** Every minute a computer runs debits credits at the per-minute price. This is what an agent buying a few minutes uses.
 - **Passes.** A day pass (24 h) or monthly pass (30 days) bought once with credits. While it is active, runtime on computers inside the pass costs nothing, and the plan's own limits apply (how many computers may run and be saved, the largest resource tier, whether GPUs are allowed). x402 cannot charge again on its own, so a pass never renews itself: buying again while one is active extends it from its current end date.

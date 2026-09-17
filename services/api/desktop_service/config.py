@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # GPUs map to OpenSandbox resourceLimits.gpu; enable only on hosts with NVIDIA GPUs and the container toolkit.
     gpu_enabled: bool = False
     gpu_max_per_computer: int = 1
+    # Instance platform (pay per action, SPEC v0.2). Unset means Cubicle bills on its own ledger.
+    platform_url: str = ""
+    platform_service_token: str = ""
+    # How long a desktop keeps running while the next hour is unpaid, and how early we ask for it.
+    runtime_grace_minutes: int = 5
     anthropic_model: str = "claude-sonnet-4-6"
     max_desktops: int = 4
     paid_saved_computers: int = 2

@@ -12,7 +12,7 @@ from uuid import uuid4
 import anthropic
 from sqlalchemy import func, select, text
 
-from . import apps, automations, features, runtime, screens, secrets_vault
+from . import apps, automations, features, platform_client, runtime, runtime_billing, screens, secrets_vault
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .display import dimensions
@@ -334,13 +334,18 @@ async def reconcile():
                         # A guest-side hiccup must never stall metering or idle handling for the computer.
                         db.rollback()
                         log.exception("App install polling failed for %s", c.id)
-                    elapsed = int((now() - c.metered_at).total_seconds() // 60) if c.metered_at else 0
-                    for _ in range(min(elapsed, 1440)):
-                        c.metered_at += timedelta(minutes=1)
-                        if not charge(db, w, c.id, int(c.metered_at.timestamp() // 60)):
+                    if platform_client.configured():
+                        if not runtime_billing.ensure(db, c):
                             c.status = "stopping"
-                            event(db, c.id, "Computer stopped: credits exhausted.", "info")
-                            break
+                            event(db, c.id, "Computer stopped: the next hour of runtime was not paid.", "info")
+                    else:
+                        elapsed = int((now() - c.metered_at).total_seconds() // 60) if c.metered_at else 0
+                        for _ in range(min(elapsed, 1440)):
+                            c.metered_at += timedelta(minutes=1)
+                            if not charge(db, w, c.id, int(c.metered_at.timestamp() // 60)):
+                                c.status = "stopping"
+                                event(db, c.id, "Computer stopped: credits exhausted.", "info")
+                                break
                     active = db.scalar(
                         select(Run).where(Run.computer_id == c.id, Run.status.in_(["running", "queued"]))
                     )
