@@ -16,12 +16,21 @@ def run(*command):
     return subprocess.check_output(command, timeout=45).decode()
 
 
-if name in ("list_files", "read_file", "write_file"):
+if name in ("list_files", "read_file", "write_file", "delete_file"):
     home = Path("/home/desktop").resolve()
     target = (home / args.get("path", "")).resolve()
     if not target.is_relative_to(home):
         raise ValueError("Path must stay inside Home")
-    if name == "write_file":
+    if name == "delete_file":
+        if target == home:
+            raise ValueError("Home itself cannot be deleted")
+        if target.is_dir():
+            raise ValueError("Delete files only")
+        if not target.exists():
+            raise ValueError("File not found")
+        target.unlink()
+        print(json.dumps({"name": target.name, "deleted": True}))
+    elif name == "write_file":
         data = base64.b64decode(args.get("data", ""), validate=True)
         if len(data) > 20 * 1024 * 1024:
             raise ValueError("Upload must be no larger than 20 MB")

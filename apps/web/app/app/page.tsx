@@ -661,12 +661,35 @@ export default function Dashboard() {
                           disabled={busy}
                           title={f.directory ? "Open folder" : "Download file"}
                         >
-                          <Folder size={16} />
-                          <span>{f.name}</span>
-                          <small>
-                            {f.directory ? "Folder" : `${f.size} B`}
-                          </small>
-                        </button>
+                      <Folder size={16} />
+                      <span>{f.name}</span>
+                      <small>
+                        {f.directory ? "Folder" : `${f.size} B`}
+                      </small>
+                      {!f.directory && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Delete ${f.name}`}
+                          className="file-delete"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm(`Delete ${f.name}?`)) return;
+                            await perform(async () => {
+                              await api(`/computers/${selected}/delete-file`, "POST", {
+                                path: [filePath, f.name].filter(Boolean).join("/"),
+                              });
+                              const refreshed = await api<typeof files>(
+                                `/computers/${selected}/files?path=${encodeURIComponent(filePath)}`,
+                              );
+                              setFiles(refreshed);
+                            });
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </span>
+                      )}
+                      </button>
                       ))
                     ) : (
                       <div className="panel-empty">

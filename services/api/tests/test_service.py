@@ -54,6 +54,28 @@ def test_upload_rejects_non_controller_and_invalid_payload(client, db):
     assert client.post(f"/v1/computers/{computer.id}/upload", json={"path": "../a", "data": "YQ=="}).status_code == 409
 
 
+def test_delete_file_requires_control_and_reports_result(client, db, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from desktop_service import runtime
+
+    computer = Computer(
+        workspace_id="w",
+        name="Delete desktop",
+        request_id="delete-computer",
+        status="running",
+        sandbox_id="sandbox-delete",
+        controller="local-user",
+    )
+    db.add(computer)
+    db.commit()
+    monkeypatch.setattr(runtime, "tool", AsyncMock(return_value='{"name":"note.txt","deleted":true}'))
+    response = client.post(f"/v1/computers/{computer.id}/delete-file", json={"path": "note.txt"})
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
+    runtime.tool.assert_awaited_once_with("sandbox-delete", "delete_file", {"path": "note.txt"})
+
+
 def create(client, key="unique-request-1"):
     return client.post("/v1/workspaces/w/computers", json={"name": "My computer"}, headers={"Idempotency-Key": key})
 

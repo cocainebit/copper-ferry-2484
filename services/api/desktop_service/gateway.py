@@ -143,6 +143,25 @@ async def upload(cid: str, body: Upload, user=Depends(identity), db=Depends(data
     return result
 
 
+class DeleteFile(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+
+
+@router.post("/v1/computers/{cid}/delete-file")
+async def delete_file(cid: str, body: DeleteFile, user=Depends(identity), db=Depends(database)):
+    c = authorize(db, cid, user)
+    if c.controller != user["id"]:
+        raise HTTPException(409, "Take control before deleting files")
+    try:
+        result = json.loads(await runtime.tool(c.sandbox_id, "delete_file", {"path": body.path}))
+    except (ValueError, RuntimeError, json.JSONDecodeError):
+        raise HTTPException(400, "Choose an existing file inside Home") from None
+    c.last_active = now()
+    event(db, cid, "File deleted", "activity")
+    db.commit()
+    return result
+
+
 @router.get("/v1/computers/{cid}/files")
 async def files(cid: str, path: str = "", user=Depends(identity), db=Depends(database)):
     c = authorize(db, cid, user)

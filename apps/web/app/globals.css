@@ -1184,6 +1184,8 @@ footer a {
   cursor: pointer;
 }
 .file-upload input { display: none; }
+.file-delete { margin-left: auto; color: #8b7777; display: inline-flex; }
+.file-delete:hover { color: #d99a9a; }
 .terminal-panel pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

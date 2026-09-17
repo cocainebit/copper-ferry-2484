@@ -24,6 +24,7 @@ All routes start with `/v1` and require an authenticated session. Mutations othe
 
 - `GET/PUT /computers/{id}/profile`: CPU, memory, resolution and `idle_timeout_minutes` settings. Omitted PUT fields preserve saved values. Idle timeout is 0–1440 minutes, default 15; zero disables idle stopping.
 - `POST /computers/{id}/upload`: upload one base64-encoded file into Home (maximum 20 MiB; owner/controller only).
+- `POST /computers/{id}/delete-file`: delete one file inside Home (owner/controller only; directories and Home itself are refused).
 - `POST /computers/{id}/clone`: `{ "name": "Copy" }`.
 - `POST /computers/{id}/templates`: `{ "name": "Python tools" }`.
 - `GET /workspaces/{id}/templates`: templates with lifecycle state.
