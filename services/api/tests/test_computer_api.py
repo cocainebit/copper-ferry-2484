@@ -74,13 +74,24 @@ def test_validation_rejects_bad_input(client, running, tool):
     tool.assert_not_awaited()
 
 
-def test_bash_returns_output_or_error(client, running, tool):
+def test_bash_returns_output_even_when_the_command_fails(client, running, tool):
     tool.return_value = "total 0"
     body = client.post(f"/v1/computers/{running.id}/bash", json={"command": "ls -la"}).json()
-    assert body == {"output": "total 0", "error": None}
-    tool.side_effect = RuntimeError("exit status 2")
-    body = client.post(f"/v1/computers/{running.id}/bash", json={"command": "false"}).json()
-    assert body["output"] == "" and "exit status 2" in body["error"]
+    assert body == {"output": "total 0", "error": None, "exit_code": 0}
+    tool.side_effect = runtime.CommandFailed("2", "ls: cannot access 'nope': No such file or directory")
+    body = client.post(f"/v1/computers/{running.id}/bash", json={"command": "ls nope"}).json()
+    assert body == {
+        "output": "ls: cannot access 'nope': No such file or directory",
+        "error": "exit status 2",
+        "exit_code": "2",
+    }
+    tool.side_effect = runtime.CommandFailed("124", "partial")
+    assert client.post(f"/v1/computers/{running.id}/bash", json={"command": "sleep 99"}).json()["error"] == (
+        "timed out after 45 seconds"
+    )
+    tool.side_effect = RuntimeError("sandbox unreachable")
+    body = client.post(f"/v1/computers/{running.id}/bash", json={"command": "true"}).json()
+    assert body["output"] == "" and "unreachable" in body["error"]
 
 
 def test_operator_rules_respect_manual_control_and_builtin_tasks(client, db, running, tool):

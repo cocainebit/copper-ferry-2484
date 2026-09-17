@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { api, type Computer } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { AudioToggle } from "@/components/audio";
 type Screen = { number: number; resolution: string; primary: boolean };
 
 export function Viewer({
@@ -181,6 +182,9 @@ export function Viewer({
           </div>
         )}
         <div>
+          {computer.status === "running" && (
+            <AudioToggle computerId={computer.id} />
+          )}
           {computer.status === "running" && control && (
             <button
               title="Clipboard"

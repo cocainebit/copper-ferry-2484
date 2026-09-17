@@ -167,3 +167,65 @@ def test_viewer_route_still_relays_binary_only(client, db, running, monkeypatch)
         with pytest.raises(WebSocketDisconnect):
             ws.receive_bytes()
     assert remote.sent == [b"\x01", b"\x02"]
+
+
+class TickingRemote(FakeRemote):
+    """Emits a numbered frame every 100 ms for about three seconds."""
+
+    async def _stream(self):
+        for index in range(30):
+            yield bytes([index])
+            await asyncio.sleep(0.1)
+
+
+def test_audio_is_receive_only_and_survives_control_changes(client, db, running, monkeypatch):
+    remote = TickingRemote()
+    monkeypatch.setattr(runtime, "endpoint", AsyncMock(return_value=("sandbox-host:7682", {})))
+    monkeypatch.setattr(gateway.websockets, "connect", remote.connect)
+    running.controller = "agent"
+    db.commit()
+    ticket = client.post(f"/v1/computers/{running.id}/audio-ticket").json()["ticket"]
+    claims = jwt.decode(ticket, gateway.signing_key(), algorithms=["HS256"])
+    assert claims["purpose"] == "desktop-audio" and claims["control"] is False
+    viewer = client.post(f"/v1/computers/{running.id}/viewer-ticket").json()["ticket"]
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect(
+            f"/v1/computers/{running.id}/audio?ticket={viewer}", headers={"origin": "http://localhost:3000"}
+        ):
+            pass
+    with client.websocket_connect(
+        f"/v1/computers/{running.id}/audio?ticket={ticket}", headers={"origin": "http://localhost:3000"}
+    ) as ws:
+        assert ws.receive_bytes() == bytes([0])
+        ws.send_bytes(b"ignored")
+        running.controller = "local-user"  # control changes hands mid-stream
+        db.commit()
+        # The membership watch polls every second; frames must keep flowing well past that.
+        received = [ws.receive_bytes() for _ in range(20)]
+        assert received[-1] == bytes([20])
+    assert remote.sent == []
+    assert remote.connects[0][0] == "ws://sandbox-host:7682/?token=shell-token"
+
+
+def test_entrypoint_audio_step_can_never_block_boot():
+    import subprocess
+
+    entry = runtime.desktop_entrypoint("1440x900", False)[2]
+    probe = entry.replace("exec /opt/desktop/start.sh", "echo BOOT_CONTINUES")
+    for target in runtime.GUEST_FILES:
+        probe = probe.replace(target, "/dev/null")
+    probe = probe.replace("> /etc/profile.d/cubicle-secrets.sh", "> /dev/null").replace("chmod 0644 /dev/null", "true")
+    probe = probe.replace("chmod 0755 /dev/null", "true").replace(
+        "(/opt/tools/bin/python /dev/null > /tmp/pty.log 2>&1 &)", "true"
+    )
+    for variant in (
+        probe.replace("command -v pulseaudio", "false"),
+        probe.replace("command -v pulseaudio", "true").replace("runuser -u desktop -- pulseaudio", "false"),
+    ):
+        result = subprocess.run(
+            ["sh", "-c", variant.replace("/tmp/pulse.log", "/dev/null").replace("/tmp/audio.log", "/dev/null")],
+            capture_output=True,
+            text=True,
+        )
+        assert result.stdout.strip().endswith("BOOT_CONTINUES"), result.stderr
+    assert "export PULSE_SERVER=unix:/tmp/cubicle-pulse/native" in entry

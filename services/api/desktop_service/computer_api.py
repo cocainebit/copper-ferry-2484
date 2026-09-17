@@ -233,11 +233,15 @@ async def bash(cid: str, body: Bash, user=Depends(identity), db=Depends(database
     c = operator(db, cid, user)
     try:
         output = await runtime.tool(c.sandbox_id, "bash", {"command": body.command})
+    except runtime.CommandFailed as exc:
+        touch(db, c, "api: shell command failed")
+        code = "timed out after 45 seconds" if str(exc.status) == "124" else f"exit status {exc.status}"
+        return {"output": exc.output[:200000], "error": code, "exit_code": exc.status}
     except RuntimeError as exc:
         touch(db, c, "api: shell command failed")
-        return {"output": "", "error": str(exc)[:4000]}
+        return {"output": "", "error": str(exc)[:4000], "exit_code": None}
     touch(db, c, "api: shell command")
-    return {"output": output[:200000], "error": None}
+    return {"output": output[:200000], "error": None, "exit_code": 0}
 
 
 @router.post("/wait")

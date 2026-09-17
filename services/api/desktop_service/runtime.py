@@ -80,7 +80,22 @@ GUEST_FILES = {
     "/opt/desktop/tools.py": (GUEST / "tools.py", "0644"),
     "/opt/desktop/pty_server.py": (GUEST_PTY_SERVER, "0644"),
     "/opt/desktop/screen.sh": (GUEST / "screen.sh", "0755"),
+    "/opt/desktop/audio_server.py": (GUEST / "audio_server.py", "0644"),
 }
+PULSE_SERVER = "unix:/tmp/cubicle-pulse/native"
+# Speaker output: a null sink every desktop app plays into, captured only while someone listens.
+# Images without PulseAudio skip this and report audio as unavailable.
+AUDIO_STARTUP = (
+    "if command -v pulseaudio >/dev/null 2>&1; then "
+    "mkdir -p /tmp/cubicle-pulse && chown desktop:desktop /tmp/cubicle-pulse && "
+    "runuser -u desktop -- pulseaudio --daemonize=yes --exit-idle-time=-1 --use-pid-file=no -n "
+    "--load=module-null-sink\\ sink_name=cubicle\\ sink_properties=device.description=Cubicle "
+    "--load=module-native-protocol-unix\\ socket=/tmp/cubicle-pulse/native\\ auth-anonymous=1 "
+    "--load=module-always-sink > /tmp/pulse.log 2>&1 && "
+    "runuser -u desktop -- pactl --server " + PULSE_SERVER + " set-default-sink cubicle >> /tmp/pulse.log 2>&1 && "
+    "(/opt/tools/bin/python /opt/desktop/audio_server.py > /tmp/audio.log 2>&1 &); "
+    "else echo no-pulseaudio > /tmp/audio.log; fi"
+)
 SECRETS_PROFILE_HOOK = "[ -r /dev/shm/cubicle/secrets.env ] && . /dev/shm/cubicle/secrets.env"
 
 
@@ -110,6 +125,9 @@ def desktop_entrypoint(resolution, from_snapshot=False):
         steps.append(f"printf %s {payload} | base64 -d > {target} && chmod {mode} {target}")
     steps += [
         "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)",
+        # Audio is optional: its group always succeeds so a sound problem never blocks the desktop.
+        "{ " + AUDIO_STARTUP + "; true; }",
+        "export PULSE_SERVER=" + PULSE_SERVER,
         # Login shells pick up workspace secrets from tmpfs; the hook itself holds no values.
         "printf '%s\\n' " + shlex.quote(SECRETS_PROFILE_HOOK) + " > /etc/profile.d/cubicle-secrets.sh",
     ]
@@ -173,6 +191,15 @@ async def wipe(cid):
         await sb.close()
 
 
+class CommandFailed(RuntimeError):
+    """A guest command exited unsuccessfully; keeps what it printed so callers can surface it."""
+
+    def __init__(self, status, output=""):
+        super().__init__(status)
+        self.status = status
+        self.output = output
+
+
 async def execute(sid, command):
     sb = await connect(sid)
     try:
@@ -187,7 +214,7 @@ async def execute(sid, command):
         output = "\n".join(x.text for x in result.logs.stdout)
         errors = "\n".join(x.text for x in result.logs.stderr)
         if result.error:
-            raise RuntimeError(result.error.value)
+            raise CommandFailed(result.error.value, (output + "\n" + errors).strip())
         return (output + "\n" + errors).strip()
     finally:
         await sb.close()

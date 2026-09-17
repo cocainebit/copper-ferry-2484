@@ -71,6 +71,34 @@ def ticket(cid: str, screen: int = 0, user=Depends(identity), db=Depends(databas
     }
 
 
+@router.post("/v1/computers/{cid}/audio-ticket")
+def audio_ticket(cid: str, user=Depends(identity), db=Depends(database)):
+    authorize(db, cid, user)
+    return {"ticket": issue(user, cid, "desktop-audio", False)}
+
+
+@router.websocket("/v1/computers/{cid}/audio")
+async def audio(ws: WebSocket, cid: str, ticket: str):
+    """Receive-only speaker stream for any workspace member who can view the computer."""
+    try:
+        claims = redeem(ws, ticket, cid, "desktop-audio")
+        with models.Session() as db:
+            c = authorize(db, cid, {"id": claims["sub"]})
+            if not c.pty_secret:
+                raise ValueError("token")
+            sid, token = c.sandbox_id, unseal(c.pty_secret)
+        endpoint, headers = await runtime.endpoint(sid, 7682)
+        target = sandbox_url(endpoint, "/?token=" + quote(token, safe=""))
+        await proxy(ws, cid, claims, sid, target, headers, False, text_frames=True, follow_control=False, inbound=False)
+    except (Exception, WebSocketDisconnect):
+        pass
+    finally:
+        try:
+            await ws.close(code=1000)
+        except (RuntimeError, WebSocketDisconnect):
+            pass
+
+
 @router.post("/v1/computers/{cid}/terminal-ticket")
 def terminal_ticket(cid: str, user=Depends(identity), db=Depends(database)):
     c = authorize(db, cid, user)
@@ -79,8 +107,12 @@ def terminal_ticket(cid: str, user=Depends(identity), db=Depends(database)):
     return {"ticket": issue(user, cid, "desktop-terminal", True)}
 
 
-async def proxy(ws, cid, claims, sid, target, headers, control, text_frames=False):
-    """Relay one browser websocket to one sandbox websocket until either side, or the grant, ends."""
+async def proxy(ws, cid, claims, sid, target, headers, control, text_frames=False, follow_control=True, inbound=True):
+    """Relay one browser websocket to one sandbox websocket until either side, or the grant, ends.
+
+    follow_control=False keeps the stream open when control changes hands (audio); inbound=False
+    drops everything the browser sends (receive-only streams).
+    """
     await ws.accept()
     async with websockets.connect(target, additional_headers=headers, max_size=16 * 1024 * 1024) as remote:
 
@@ -89,6 +121,8 @@ async def proxy(ws, cid, claims, sid, target, headers, control, text_frames=Fals
                 message = await ws.receive()
                 if message.get("type") == "websocket.disconnect":
                     return
+                if not inbound:
+                    continue
                 data = message.get("bytes")
                 if data is None:
                     if not text_frames or message.get("text") is None:
@@ -115,7 +149,9 @@ async def proxy(ws, cid, claims, sid, target, headers, control, text_frames=Fals
                 await asyncio.sleep(1)
                 with models.Session() as db:
                     current = authorize(db, cid, {"id": claims["sub"]})
-                    if current.sandbox_id != sid or bool(current.controller == claims["sub"]) != control:
+                    if current.sandbox_id != sid:
+                        return
+                    if follow_control and bool(current.controller == claims["sub"]) != control:
                         return
 
         tasks = [asyncio.create_task(f()) for f in (incoming, outgoing, membership_watch)]
@@ -194,7 +230,10 @@ class Upload(BaseModel):
 @router.post("/v1/computers/{cid}/terminal")
 async def terminal(cid: str, body: Command, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    output = await runtime.tool(c.sandbox_id, "bash", {"command": body.command})
+    try:
+        output = await runtime.tool(c.sandbox_id, "bash", {"command": body.command})
+    except runtime.CommandFailed as exc:
+        output = exc.output + f"\n[exit status {exc.status}]"
     c.last_active = now()
     event(db, cid, "Terminal command executed", "activity")
     db.commit()
