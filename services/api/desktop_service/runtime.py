@@ -73,7 +73,14 @@ async def create(cid, password, snapshot_id=None, pty_token=""):
     return sb.id
 
 
-GUEST_PTY_SERVER = Path(__file__).with_name("guest") / "pty_server.py"
+GUEST = Path(__file__).with_name("guest")
+GUEST_PTY_SERVER = GUEST / "pty_server.py"
+# Platform-owned guest files rewritten at every boot so saved system snapshots never pin old copies.
+GUEST_FILES = {
+    "/opt/desktop/tools.py": (GUEST / "tools.py", "0644"),
+    "/opt/desktop/pty_server.py": (GUEST_PTY_SERVER, "0644"),
+    "/opt/desktop/screen.sh": (GUEST / "screen.sh", "0755"),
+}
 SECRETS_PROFILE_HOOK = "[ -r /dev/shm/cubicle/secrets.env ] && . /dev/shm/cubicle/secrets.env"
 
 
@@ -97,9 +104,11 @@ def desktop_entrypoint(resolution, from_snapshot=False):
     and the dashboard falls back to the one-shot command runner.
     """
     dimensions(resolution)
-    payload = base64.b64encode(GUEST_PTY_SERVER.read_bytes()).decode()
-    steps = [
-        f"printf %s {payload} | base64 -d > /opt/desktop/pty_server.py",
+    steps = []
+    for target, (source, mode) in GUEST_FILES.items():
+        payload = base64.b64encode(source.read_bytes()).decode()
+        steps.append(f"printf %s {payload} | base64 -d > {target} && chmod {mode} {target}")
+    steps += [
         "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)",
         # Login shells pick up workspace secrets from tmpfs; the hook itself holds no values.
         "printf '%s\\n' " + shlex.quote(SECRETS_PROFILE_HOOK) + " > /etc/profile.d/cubicle-secrets.sh",
@@ -184,10 +193,13 @@ async def execute(sid, command):
         await sb.close()
 
 
-async def tool(sid, name, args):
+async def tool(sid, name, args, display=":0"):
     if name == "bash":
         return await execute(sid, "timeout 45s bash -lc " + shlex.quote(args["command"]))
-    payload = base64.b64encode(json.dumps({"name": name, "input": args}).encode()).decode()
+    request = {"name": name, "input": args}
+    if display != ":0":
+        request["display"] = display
+    payload = base64.b64encode(json.dumps(request).encode()).decode()
     return await execute(sid, "python3 /opt/desktop/tools.py " + shlex.quote(payload))
 
 

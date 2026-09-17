@@ -45,6 +45,7 @@ from .onboarding import router as onboarding_router
 from .operations import requests as request_counts
 from .operations import router as operations_router
 from .platform_credits import available, paid_access
+from .screens import router as screens_router
 from .secrets_vault import router as secrets_router
 from .security import digest, identity, member, seal
 from .template_registry import router as template_registry_router
@@ -617,6 +618,7 @@ app.include_router(secrets_router)
 app.include_router(apps_router)
 app.include_router(template_registry_router)
 app.include_router(automations_router)
+app.include_router(screens_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

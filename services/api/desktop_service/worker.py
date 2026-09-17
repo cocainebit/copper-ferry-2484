@@ -12,7 +12,7 @@ from uuid import uuid4
 import anthropic
 from sqlalchemy import func, select, text
 
-from . import apps, automations, features, runtime, secrets_vault
+from . import apps, automations, features, runtime, screens, secrets_vault
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .display import dimensions
@@ -304,6 +304,7 @@ async def reconcile():
                     c.sandbox_id = await runtime.create(
                         c.id, unseal(c.vnc_secret), c.system_snapshot_id, pty_token=unseal(c.pty_secret)
                     )
+                    await screens.start_all(db, c)
                     try:
                         await secrets_vault.inject(db, c)
                     except Exception:

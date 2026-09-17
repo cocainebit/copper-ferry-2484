@@ -1,15 +1,19 @@
 import base64
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 request = json.loads(base64.b64decode(sys.argv[1]))
 name = request["name"]
 args = request["input"]
-os.environ["DISPLAY"] = ":0"
+# Screen-targeted input: the API chooses the X display; the built-in agent always uses :0.
+display = str(request.get("display", ":0"))
+if display not in (":0", ":1", ":2", ":3"):
+    raise ValueError("Unsupported display")
+os.environ["DISPLAY"] = display
 
 
 def run(*command):

@@ -2351,3 +2351,38 @@ button.file-row:hover {
 .automation-form .button {
   width: fit-content;
 }
+
+.screen-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  margin-left: 14px;
+}
+.screen-tab-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+.screen-tabs button {
+  font-size: 10px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid #303034;
+  color: #9a9aa2;
+  background: transparent;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 5px;
+}
+.screen-tabs button.selected {
+  background: #212123;
+  color: #ddd;
+  border-color: #45454a;
+}
+.screen-tabs .screen-remove {
+  border: 0;
+  min-width: 14px;
+  padding: 0 2px;
+  color: #6c6c74;
+}

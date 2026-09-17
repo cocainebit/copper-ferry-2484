@@ -302,7 +302,7 @@ async def remove(cid: str, app_id: str, user=Depends(identity), db=Depends(datab
 
 
 @router.post("/computers/{cid}/apps/{app_id}/launch")
-async def launch(cid: str, app_id: str, user=Depends(identity), db=Depends(database)):
+async def launch(cid: str, app_id: str, screen: int = 0, user=Depends(identity), db=Depends(database)):
     app = BY_ID.get(app_id)
     if not app or "launch" not in app:
         raise HTTPException(404, "This app has no desktop launcher")
@@ -310,7 +310,10 @@ async def launch(cid: str, app_id: str, user=Depends(identity), db=Depends(datab
     latest = current(db, cid)
     if app_id not in latest or latest[app_id].status != "installed":
         raise HTTPException(409, "Install the app first")
-    command = f"DISPLAY=:0 HOME=/home/desktop nohup {app['launch']} >/dev/null 2>&1 &"
+    from .screens import display, require_screen
+
+    require_screen(db, cid, screen)
+    command = f"DISPLAY={display(screen)} HOME=/home/desktop nohup {app['launch']} >/dev/null 2>&1 &"
     await runtime.execute(c.sandbox_id, "runuser -u desktop -- sh -c " + shlex.quote(command))
     c.last_active = now()
     event(db, cid, f"Launched {app['name']}", "activity")

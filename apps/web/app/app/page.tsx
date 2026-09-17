@@ -655,7 +655,11 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
-              <Viewer computer={computer} onStart={() => action("start")} />
+              <Viewer
+                computer={computer}
+                onStart={() => action("start")}
+                owner={workspace.role === "owner"}
+              />
               <div className="bottom-panel">
                 <div className="tab-list" role="tablist">
                   {[

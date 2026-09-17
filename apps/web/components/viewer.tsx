@@ -7,17 +7,26 @@ import {
   ClipboardPaste,
   Copy,
   Check,
+  Plus,
+  X,
 } from "lucide-react";
 import { api, type Computer } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+type Screen = { number: number; resolution: string; primary: boolean };
+
 export function Viewer({
   computer,
   onStart,
+  owner = false,
 }: {
   computer: Computer;
   onStart: () => void;
+  owner?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [screen, setScreen] = useState(0);
+  const [screenBusy, setScreenBusy] = useState(false);
   const rfbRef = useRef<any>(null);
   const [status, setStatus] = useState("Connecting");
   const [attempt, setAttempt] = useState(0);
@@ -27,6 +36,30 @@ export function Viewer({
   const [fromDesktop, setFromDesktop] = useState("");
   const [copied, setCopied] = useState(false);
   useEffect(() => {
+    let alive = true;
+    api<Screen[]>(`/computers/${computer.id}/screens`)
+      .then((list) => {
+        if (!alive) return;
+        setScreens(list);
+        if (!list.some((s) => s.number === screen)) setScreen(0);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [computer.id, computer.status, screen]);
+  async function changeScreens(fn: () => Promise<unknown>) {
+    setScreenBusy(true);
+    try {
+      await fn();
+      setScreens(await api<Screen[]>(`/computers/${computer.id}/screens`));
+    } catch (e) {
+      setStatus((e as Error).message);
+    } finally {
+      setScreenBusy(false);
+    }
+  }
+  useEffect(() => {
     if (computer.status !== "running") return;
     let disposed = false;
     let rfb: any;
@@ -35,7 +68,7 @@ export function Viewer({
     (async () => {
       try {
         const ticket = await api(
-          `/computers/${computer.id}/viewer-ticket`,
+          `/computers/${computer.id}/viewer-ticket?screen=${screen}`,
           "POST",
         );
         const { default: RFB } = await import("@novnc/novnc");
@@ -77,7 +110,7 @@ export function Viewer({
       // noVNC logs an error when disconnect() is called on an already-closed session.
       if (live) rfb?.disconnect();
     };
-  }, [computer.id, computer.status, computer.controller, attempt]);
+  }, [computer.id, computer.status, computer.controller, attempt, screen]);
   function sendToDesktop(text: string) {
     if (!text || !rfbRef.current) return;
     rfbRef.current.clipboardPasteFrom(text);
@@ -93,6 +126,60 @@ export function Viewer({
           />
           {computer.status === "running" ? status : computer.status}
         </span>
+        {screens.length > 0 && (
+          <div className="screen-tabs" role="tablist" aria-label="Screens">
+            {screens.map((s) => (
+              <span key={s.number} className="screen-tab-wrap">
+                <button
+                  role="tab"
+                  aria-selected={screen === s.number}
+                  className={screen === s.number ? "selected" : ""}
+                  title={`Screen ${s.number + 1} · ${s.resolution}`}
+                  onClick={() => setScreen(s.number)}
+                >
+                  {s.number + 1}
+                </button>
+                {!s.primary && owner && (
+                  <button
+                    className="screen-remove"
+                    aria-label={`Remove screen ${s.number + 1}`}
+                    disabled={screenBusy}
+                    onClick={() =>
+                      changeScreens(async () => {
+                        if (screen === s.number) setScreen(0);
+                        await api(
+                          `/computers/${computer.id}/screens/${s.number}`,
+                          "DELETE",
+                        );
+                      })
+                    }
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </span>
+            ))}
+            {owner && screens.length < 4 && (
+              <button
+                title="Add a screen"
+                aria-label="Add a screen"
+                disabled={screenBusy}
+                onClick={() =>
+                  changeScreens(async () => {
+                    const added = await api<Screen>(
+                      `/computers/${computer.id}/screens`,
+                      "POST",
+                      { resolution: "1440x900" },
+                    );
+                    setScreen(added.number);
+                  })
+                }
+              >
+                <Plus size={11} />
+              </button>
+            )}
+          </div>
+        )}
         <div>
           {computer.status === "running" && control && (
             <button

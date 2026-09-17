@@ -60,6 +60,14 @@ def operator(db, cid, user):
     return c
 
 
+def target(db, cid, number):
+    """X display for a validated screen number (0 is the primary desktop)."""
+    from .screens import display, require_screen
+
+    require_screen(db, cid, number)
+    return display(number)
+
+
 def touch(db, c, text):
     c.last_active = now()
     event(db, c.id, text, "activity")
@@ -67,6 +75,7 @@ def touch(db, c, text):
 
 
 class Click(BaseModel):
+    screen: int = Field(default=0, ge=0, le=3)
     x: int = Field(ge=0, le=8192)
     y: int = Field(ge=0, le=8192)
     button: Literal["left", "right", "middle"] = "left"
@@ -74,11 +83,13 @@ class Click(BaseModel):
 
 
 class Drag(BaseModel):
+    screen: int = Field(default=0, ge=0, le=3)
     from_: list[int] = Field(alias="from", min_length=2, max_length=2)
     to: list[int] = Field(min_length=2, max_length=2)
 
 
 class Scroll(BaseModel):
+    screen: int = Field(default=0, ge=0, le=3)
     x: int = Field(ge=0, le=8192)
     y: int = Field(ge=0, le=8192)
     direction: Literal["up", "down", "left", "right"] = "down"
@@ -86,10 +97,12 @@ class Scroll(BaseModel):
 
 
 class Type(BaseModel):
+    screen: int = Field(default=0, ge=0, le=3)
     text: str = Field(min_length=1, max_length=10000)
 
 
 class Key(BaseModel):
+    screen: int = Field(default=0, ge=0, le=3)
     key: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_+\-]+$")
 
 
@@ -98,6 +111,7 @@ class Bash(BaseModel):
 
 
 class Wait(BaseModel):
+    screen: int = Field(default=0, ge=0, le=3)
     seconds: float = Field(default=1, ge=0, le=10)
 
 
@@ -128,11 +142,13 @@ def get_computer(cid: str, user=Depends(identity), db=Depends(database)):
 
 
 @router.post("/screenshot")
-async def screenshot(cid: str, user=Depends(identity), db=Depends(database)):
+async def screenshot(cid: str, screen: int = 0, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    image = await runtime.tool(c.sandbox_id, "computer", {"action": "screenshot"})
-    profile = db.get(DesktopProfile, cid)
-    width, height = dimensions(profile.resolution if profile else "1440x900")
+    image = await runtime.tool(c.sandbox_id, "computer", {"action": "screenshot"}, display=target(db, cid, screen))
+    from .screens import listing
+
+    resolution = next(s["resolution"] for s in listing(db, c) if s["number"] == screen)
+    width, height = dimensions(resolution)
     c.last_active = now()
     db.commit()
     return {"format": "png", "width": width, "height": height, "image": image.strip()}
@@ -144,7 +160,12 @@ async def click(cid: str, body: Click, user=Depends(identity), db=Depends(databa
     action = {1: f"{body.button}_click", 2: "double_click", 3: "triple_click"}[body.count]
     if body.count > 1 and body.button != "left":
         raise HTTPException(422, "Multi-clicks use the left button")
-    await runtime.tool(c.sandbox_id, "computer", {"action": action, "coordinate": [body.x, body.y]})
+    await runtime.tool(
+        c.sandbox_id,
+        "computer",
+        {"action": action, "coordinate": [body.x, body.y]},
+        display=target(db, cid, body.screen),
+    )
     touch(db, c, f"api: {action} at {body.x},{body.y}")
     return {"ok": True}
 
@@ -152,8 +173,18 @@ async def click(cid: str, body: Click, user=Depends(identity), db=Depends(databa
 @router.post("/drag")
 async def drag(cid: str, body: Drag, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    await runtime.tool(c.sandbox_id, "computer", {"action": "mouse_move", "coordinate": body.from_})
-    await runtime.tool(c.sandbox_id, "computer", {"action": "left_click_drag", "coordinate": body.to})
+    await runtime.tool(
+        c.sandbox_id,
+        "computer",
+        {"action": "mouse_move", "coordinate": body.from_},
+        display=target(db, cid, body.screen),
+    )
+    await runtime.tool(
+        c.sandbox_id,
+        "computer",
+        {"action": "left_click_drag", "coordinate": body.to},
+        display=target(db, cid, body.screen),
+    )
     touch(db, c, f"api: drag {body.from_} to {body.to}")
     return {"ok": True}
 
@@ -161,11 +192,17 @@ async def drag(cid: str, body: Drag, user=Depends(identity), db=Depends(database
 @router.post("/scroll")
 async def scroll(cid: str, body: Scroll, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    await runtime.tool(c.sandbox_id, "computer", {"action": "mouse_move", "coordinate": [body.x, body.y]})
+    await runtime.tool(
+        c.sandbox_id,
+        "computer",
+        {"action": "mouse_move", "coordinate": [body.x, body.y]},
+        display=target(db, cid, body.screen),
+    )
     await runtime.tool(
         c.sandbox_id,
         "computer",
         {"action": "scroll", "scroll_direction": body.direction, "scroll_amount": body.amount},
+        display=target(db, cid, body.screen),
     )
     touch(db, c, f"api: scroll {body.direction} {body.amount}")
     return {"ok": True}
@@ -174,7 +211,9 @@ async def scroll(cid: str, body: Scroll, user=Depends(identity), db=Depends(data
 @router.post("/type")
 async def type_text(cid: str, body: Type, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    await runtime.tool(c.sandbox_id, "computer", {"action": "type", "text": body.text})
+    await runtime.tool(
+        c.sandbox_id, "computer", {"action": "type", "text": body.text}, display=target(db, cid, body.screen)
+    )
     touch(db, c, f"api: typed {len(body.text)} characters")
     return {"ok": True}
 
@@ -182,7 +221,9 @@ async def type_text(cid: str, body: Type, user=Depends(identity), db=Depends(dat
 @router.post("/key")
 async def key(cid: str, body: Key, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    await runtime.tool(c.sandbox_id, "computer", {"action": "key", "text": body.key})
+    await runtime.tool(
+        c.sandbox_id, "computer", {"action": "key", "text": body.key}, display=target(db, cid, body.screen)
+    )
     touch(db, c, f"api: key {body.key}")
     return {"ok": True}
 
@@ -202,5 +243,7 @@ async def bash(cid: str, body: Bash, user=Depends(identity), db=Depends(database
 @router.post("/wait")
 async def wait(cid: str, body: Wait, user=Depends(identity), db=Depends(database)):
     c = operator(db, cid, user)
-    await runtime.tool(c.sandbox_id, "computer", {"action": "wait", "duration": body.seconds})
+    await runtime.tool(
+        c.sandbox_id, "computer", {"action": "wait", "duration": body.seconds}, display=target(db, cid, body.screen)
+    )
     return {"ok": True}

@@ -31,7 +31,7 @@ def authorize(db, cid, user):
     return c
 
 
-def issue(user, cid, purpose, control):
+def issue(user, cid, purpose, control, screen=0):
     claims = {
         "sub": user["id"],
         "cid": cid,
@@ -39,6 +39,7 @@ def issue(user, cid, purpose, control):
         "jti": secrets.token_urlsafe(16),
         "purpose": purpose,
         "control": control,
+        "screen": screen,
     }
     return jwt.encode(claims, signing_key(), algorithm="HS256")
 
@@ -55,12 +56,17 @@ def redeem(ws, ticket, cid, purpose):
 
 
 @router.post("/v1/computers/{cid}/viewer-ticket")
-def ticket(cid: str, user=Depends(identity), db=Depends(database)):
+def ticket(cid: str, screen: int = 0, user=Depends(identity), db=Depends(database)):
+    from .screens import require_screen
+
     c = authorize(db, cid, user)
+    require_screen(db, cid, screen)
     control = c.controller == user["id"]
+    token = issue(user, cid, "desktop-viewer", control, screen)
     return {
-        "ticket": issue(user, cid, "desktop-viewer", control),
+        "ticket": token,
         "control": control,
+        "screen": screen,
         "password": unseal(c.vnc_secret) if c.vnc_secret else "",
     }
 
@@ -130,11 +136,15 @@ def sandbox_url(endpoint, path):
 async def desktop(ws: WebSocket, cid: str, ticket: str):
     try:
         claims = redeem(ws, ticket, cid, "desktop-viewer")
+        screen = int(claims.get("screen", 0))
         with models.Session() as db:
+            from .screens import ports, require_screen
+
             c = authorize(db, cid, {"id": claims["sub"]})
+            require_screen(db, cid, screen)
             control = claims["control"] and c.controller == claims["sub"]
             sid = c.sandbox_id
-        endpoint, headers = await runtime.endpoint(sid, 6080 if control else 6081)
+        endpoint, headers = await runtime.endpoint(sid, ports(screen, control))
         await proxy(ws, cid, claims, sid, sandbox_url(endpoint, "/websockify"), headers, control)
     except (Exception, WebSocketDisconnect):
         pass

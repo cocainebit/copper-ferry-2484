@@ -104,7 +104,7 @@ def test_file_download_cannot_escape_home(path):
     import sys
     from pathlib import Path
 
-    tool = Path(__file__).resolve().parents[3] / "infra/desktop/tools.py"
+    tool = Path(__file__).resolve().parents[1] / "desktop_service/guest/tools.py"
     payload = base64.b64encode(json.dumps({"name": "read_file", "input": {"path": path}}).encode()).decode()
     result = subprocess.run([sys.executable, str(tool), payload], capture_output=True, text=True)
     assert result.returncode != 0
@@ -120,7 +120,7 @@ def test_file_upload_cannot_escape_home(path):
     import sys
     from pathlib import Path
 
-    tool = Path(__file__).resolve().parents[3] / "infra/desktop/tools.py"
+    tool = Path(__file__).resolve().parents[1] / "desktop_service/guest/tools.py"
     payload = base64.b64encode(
         json.dumps({"name": "write_file", "input": {"path": path, "data": "aGVsbG8="}}).encode()
     ).decode()
@@ -138,7 +138,7 @@ def test_file_delete_cannot_escape_or_remove_home(path):
     import sys
     from pathlib import Path
 
-    tool = Path(__file__).resolve().parents[3] / "infra/desktop/tools.py"
+    tool = Path(__file__).resolve().parents[1] / "desktop_service/guest/tools.py"
     payload = base64.b64encode(json.dumps({"name": "delete_file", "input": {"path": path}}).encode()).decode()
     result = subprocess.run([sys.executable, str(tool), payload], capture_output=True, text=True)
     assert result.returncode != 0
@@ -189,11 +189,11 @@ def test_entrypoint_ships_current_guest_pty_server(tmp_path):
     import base64
     import re
 
-    entry = runtime.desktop_entrypoint("1440x900", True)
-    steps = entry[2].split(" && ")
-    payload = re.match(r"printf %s (\S+) \| base64 -d > /opt/desktop/pty_server.py", steps[0]).group(1)
-    assert base64.b64decode(payload) == runtime.GUEST_PTY_SERVER.read_bytes()
-    assert steps[1] == "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)"
-    assert steps[-1] == "exec /opt/desktop/start.sh"
+    entry = runtime.desktop_entrypoint("1440x900", True)[2]
+    for target, (source, mode) in runtime.GUEST_FILES.items():
+        match = re.search(r"printf %s (\S+) \| base64 -d > " + re.escape(target) + " && chmod " + mode, entry)
+        assert match and base64.b64decode(match.group(1)) == source.read_bytes()
+    assert "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)" in entry
+    assert entry.endswith("exec /opt/desktop/start.sh")
     source = runtime.GUEST_PTY_SERVER.read_text()
     assert 'os.environ.get("PTY_TOKEN"' in source and "process_request=gate" in source
