@@ -37,7 +37,7 @@ All routes are under `/v1/computers/{id}`. Bodies are JSON. Coordinates are pixe
 | `POST /scroll` | `{x, y, direction?: up/down/left/right, amount?: 1..100}` | `{ok}` |
 | `POST /type` | `{text}` (max 10,000 chars, Unicode safe) | `{ok}` |
 | `POST /key` | `{key}` in xdotool syntax: `Return`, `ctrl+l`, `alt+F4` | `{ok}` |
-| `POST /bash` | `{command}` (max 8,000 chars) | `{output, error}`; runs as administrator, 45 s limit |
+| `POST /bash` | `{command}` (max 8,000 chars) | `{output, error, exit_code}`; output is kept when the command fails; runs as administrator, 45 s limit |
 | `POST /wait` | `{seconds?: 0..10}` | `{ok}` |
 | `GET /files?path=` | | `[{name, size, directory}]` inside Home |
 | `GET /download?path=` | | `{name, data}` base64, 20 MiB limit |
@@ -45,6 +45,8 @@ All routes are under `/v1/computers/{id}`. Bodies are JSON. Coordinates are pixe
 | `POST /delete-file` | `{path}` | `{name, deleted}` (files only, never Home) |
 | `POST /runs` | `{prompt}` + `Idempotency-Key` | built-in Claude task (needs the workspace's Anthropic key) |
 | `GET /events?after=` | | activity, agent and approval events |
+
+Every input primitive accepts `screen` (0 is the primary display, 1-3 are extra screens); `POST /screenshot?screen=N` captures one display and reports its geometry.
 
 Lifecycle: `POST /v1/workspaces/{id}/computers` (`name`, optional `cpu` 1/2, `memory_gib` 2/4, `storage_gib` 20/50/100, `resolution`, `idle_timeout_minutes`) with an `Idempotency-Key` header creates a stopped computer; `POST /v1/computers/{id}/actions/start|stop`, `PATCH /v1/computers/{id}` `{name}` renames, `DELETE /v1/computers/{id}?confirm=<name>` erases it. Creation and start answer 402 without credits or a trial and 409 at the saved or running computer limit.
 
@@ -129,3 +131,54 @@ Give the key `read` + `control` for driving an existing computer, add `manage` i
 ## Bringing your own agent loop
 
 The primitives map one to one onto Anthropic's computer-use tool actions (`screenshot`, `left_click`, `type`, `key`, `scroll`, `left_click_drag`) and a `bash` tool, so any computer-use harness can target a Cubicle computer by translating tool calls into these routes. The built-in Claude worker does exactly that inside the platform.
+
+## Screens
+
+`GET /v1/computers/{id}/screens` lists displays. `POST` with `{resolution}` adds one (up to four in total, `manage` scope); `DELETE /screens/{n}` removes it. Extra screens are persisted and recreated at every boot, each with its own window manager and viewer stream. Target them with `screen` on input calls, `?screen=N` on screenshots and app launches, and `?screen=N` on the dashboard viewer ticket.
+
+## App catalog
+
+`GET /v1/apps` is the catalog. `GET /v1/computers/{id}/apps` adds each app's install state and log tail. `POST /computers/{id}/apps/{app}/install` and `/remove` (`manage`) run the recipe detached; the worker mirrors progress, so poll the listing. `POST /apps/{app}/launch?screen=N` (`control`) opens an installed app on a display; `POST /apps/check` reconciles recorded state with the live system. Installed apps live in the system layer and survive stop/start, clones and templates.
+
+## Template definitions
+
+`GET /v1/template-starters` lists built-in specs. `POST /v1/workspaces/{id}/template-definitions` with `{name, spec}` and an `Idempotency-Key` publishes a spec: an identical spec returns the existing version (`built: false`), a changed spec builds the next version in a disposable helper. `GET /v1/templates/{id}` returns the spec, digest, build log and missing secrets; `POST /templates/{id}/rebuild` retries a failed build. Create computers from a ready version with `POST /v1/templates/{id}/computers`.
+
+Spec fields: `apps` (catalog ids, prerequisites added automatically), `packages` (Debian), `files` (`{path, content, mode}`, absolute, outside Home), `run` (root build steps), `startup` (commands run at desktop login), `env` (non-secret variables), `requires_secrets` (names only), and default `cpu`, `memory_gib`, `storage_gib`, `resolution`, `idle_timeout_minutes`.
+
+## Secrets
+
+Owners manage workspace secrets in Settings or with a signed-in session (`PUT/DELETE /v1/workspaces/{id}/secrets/{NAME}`); API keys can list names but never write values. Values are encrypted at rest, written to tmpfs at every boot and sourced by login shells: the dashboard terminal, `POST /bash`, automation commands and the built-in agent's bash tool. `PUT /v1/computers/{id}/secrets` with `{names}` restricts which secrets a computer receives; `POST /secrets/refresh` re-injects into a running computer.
+
+## Automations
+
+`POST /v1/computers/{id}/automations` (`manage`):
+
+```json
+{ "name": "Morning report",
+  "trigger": { "kind": "schedule", "cron": "0 9 * * mon-fri", "timezone": "America/Sao_Paulo" },
+  "action": { "kind": "agent_task", "prompt": "Summarize yesterday's sales into ~/reports" },
+  "start_if_stopped": true, "timeout_minutes": 30 }
+```
+
+Triggers: `schedule` (five-field cron, IANA zone, at most every 5 minutes), `interval` (`every_minutes` >= 5), `webhook`, `file` (`path` under Home created or changed), `process` (`process` stops). Actions: `command` (administrator shell, detached, output and exit status recorded), `agent_task`, `start`, `stop`. `POST /v1/automations/{id}/run` runs now; `GET /runs` is the execution history; `PATCH` with `{enabled}` pauses or resumes without replaying missed slots.
+
+Webhook automations return `webhook_token` once. Call them without any other credentials:
+
+```sh
+curl -X POST -H "X-Cubicle-Token: cbh_..." -H "Idempotency-Key: delivery-42" $CUBICLE_API_URL/v1/hooks/<automation id>
+```
+
+A retry with the same `Idempotency-Key` returns the original execution. Hooks accept one call every 10 seconds and each automation at most 300 executions a day.
+
+## Fleet
+
+`GET /v1/workspaces/{id}/fleet?q=&status=&label=` returns plan limits, host capacity, metered minutes and credit spend over 24 hours (from the usage ledger) and every computer with OS, resources, labels, screens, automations and usage. `PUT /v1/computers/{id}/labels`, `POST /v1/workspaces/{id}/computers/bulk` with `{ids, action: start|stop|add_label|remove_label, label}` (per-item results) and `POST /v1/computers/{id}/move` with `{workspace_id}` (stopped computers, owner of both workspaces) manage many computers at once.
+
+## Sound
+
+The dashboard viewer's speaker button streams the desktop's audio. Programmatic clients use `POST /v1/computers/{id}/audio-ticket` and the `/v1/computers/{id}/audio?ticket=` websocket from an allowed origin: the first text frame describes the format (24 kHz mono signed 16-bit little-endian), then binary PCM frames follow. Nothing is captured unless someone listens.
+
+## Operating systems and hardware
+
+`GET /v1/platform/capabilities` lists operating systems and GPUs with availability, the reason when unavailable, and what each OS supports. Linux is always available. Windows (OpenSandbox's Windows profile, KVM hosts only) and GPUs (NVIDIA hosts only) appear once operators enable them; macOS is not offered because no Apple-hardware provider exists. Create with `os` and `gpu` on `POST /v1/workspaces/{id}/computers`; unavailable choices fail with 409 before anything is stored. Windows computers support the viewer and lifecycle automations only.

@@ -7,6 +7,7 @@ Cubicle is the cloud-computer service for AI agents in the broader platform, wit
 ## What is here
 
 - Dark, responsive landing page, workspace dashboard, live noVNC viewer with clipboard sync, task chat, approval cards, takeover controls, file browser/uploads/downloads, rename and an interactive administrator terminal.
+- Declarative, versioned template definitions built into launchable templates, a one-click app catalog, an encrypted secrets vault injected at boot, automations (cron, intervals, webhooks, file and process watchers running commands, agent tasks or lifecycle actions), up to four screens per computer, desktop sound, a fleet view with labels, bulk actions and moves, and an OS/GPU provider catalog (Windows via OpenSandbox and GPUs on suitable hosts; macOS not offered).
 - Scoped workspace API keys (read/control/manage), a public computer API (screenshot, click, drag, scroll, type, key, bash, files), a TypeScript SDK + CLI (`packages/cubicle`), a Python SDK (`sdks/python`) and an MCP server (`packages/cubicle-mcp`).
 - Supabase Google/GitHub/email authentication, owner/member workspaces, invitation links, encrypted Anthropic BYOK.
 - Durable agent runs and tool results, separate worker, pause/resume at tool boundaries, step/time limits and recent screenshot retention.

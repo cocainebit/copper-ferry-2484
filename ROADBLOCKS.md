@@ -108,3 +108,11 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 ## Trial enrollment header (September 17, 2026)
 
 - The API signs `Cubicle trial enrollment` while the shared verifier required `Agent Desktop trial enrollment`, so every real enrollment would have been rejected with 400 once trials were configured (found by a read-only audit from the Plotform session). The verifier now accepts a service-branded first line (`<name> trial enrollment`, up to 40 characters); the eight bound fields and the fixed footer are unchanged and remain what the signature commits to. Contract tests on both sides pin the exact API message. No live-chain trial has been run yet.
+
+## Parity build: templates, apps, secrets, automations, screens, audio, fleet, providers (September 17, 2026)
+
+- Verified live on this host: template registry build and launch, app catalog install, secret injection into login shells, webhook and file-watch automations, multiple screens in the API and viewer, audio streaming (tone measured through the API), fleet overview and bulk start with plan-limit refusals.
+- Guest tooling (tools.py, pty_server.py, screen.sh, audio_server.py) is injected from the API at every boot, so saved snapshots never pin old copies. Audio additionally needs PulseAudio in the system: the rebuilt image has it; older saved systems need it installed (the catalog cannot yet do this) or a template rebuild.
+- Windows and GPU computers are config-gated (`WINDOWS_ENABLED`, `GPU_ENABLED`) and unit-tested only; they need a KVM host and an NVIDIA host running OpenSandbox. Windows computers support the viewer and lifecycle automations; agent control, files, apps and the terminal are Linux-only for now. macOS is not offered.
+- Automation `agent_task` actions and template `requires_secrets` for provider keys are wired but cannot be exercised end to end without an Anthropic key.
+- Limits worth reviewing before launch: 20 automations per computer, 300 executions per day, 10 template definitions and 20 versions, 50 secrets, four screens, and plan limits now in settings (`PAID_SAVED_COMPUTERS`, `PAID_RUNNING_COMPUTERS`, `TRIAL_*`).
