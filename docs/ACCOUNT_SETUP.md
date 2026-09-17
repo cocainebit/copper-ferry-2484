@@ -85,8 +85,10 @@ and the dashboard (`apps/web/.env.local`):
 
 ```dotenv
 NEXT_PUBLIC_PLATFORM_URL=http://127.0.0.1:8760
-NEXT_PUBLIC_PLATFORM_CLIENT_ID=<from: pnpm admin client create Cubicle http://127.0.0.1:3000/auth/callback http://127.0.0.1:8000>
+NEXT_PUBLIC_PLATFORM_CLIENT_ID=<from: pnpm admin client create Cubicle http://127.0.0.1:3000/auth/callback http://127.0.0.1:8000 --public>
 ```
+
+Register Cubicle as a **public** client (`--public`, `token_endpoint_auth_method: none`). The exchange runs in the browser and proves itself with PKCE, so no client secret exists and none belongs in the frontend. Real tokens carry `aud` as an array, because the platform lists its own userinfo endpoint beside the resource; verification checks that the array contains the Cubicle API URL.
 
 The platform must run with `OAUTH_RESOURCES=<Cubicle API URL>` so its tokens carry that audience. Verification checks issuer, audience, expiry and signature against the platform's JWKS (`{issuer}/jwks`); better-auth signs with Ed25519, and ES256 and RS256 are accepted for the other key types it can be configured with. Tokens that are not platform tokens fall through to Supabase, so nothing breaks mid-migration.
 
