@@ -18,7 +18,7 @@ Updated September 16, 2026. This records review items without interrupting imple
 
 - Anthropic key: no key exists in the local workspace. The agent implementation and mocked lifecycle tests pass; a real model-driven task remains unverified.
 - Production Supabase project, Google/GitHub OAuth applications, production SMTP and redirect domains. Local email authentication works; public OAuth/email delivery has not been tested.
-- Stripe account, reviewed prices and webhook credentials. Checkout stays disabled. Validation/idempotency/webhook tests pass, but no real checkout or charge has occurred.
+- Payment direction changed to shared crypto billing across services. Stripe integration remains disabled and is no longer the default launch dependency. Crypto invoices, a shared credit ledger, a selected chain/asset and treasury configuration still need implementation; see docs/CRYPTO_PAYMENTS.md.
 - Cloud account, dedicated Linux host, production Postgres, domain/DNS/TLS and stable secret storage. Local Postgres is running; it is not a deployed managed production database.
 - Platform network, token address/mint, decimals, treasury, confirmation policy and wallet UX. If EVM is selected, the adapter requires a reviewed immutable standard-token runtime code hash and real testnet checks. Other networks require their own adapter. No user should send payment until the selected adapter and policy are tested.
 - Broader main website repository and identity/domain design. The reusable trial client/API exists; cross-subdomain SSO and main-site embedding require that integration context.
