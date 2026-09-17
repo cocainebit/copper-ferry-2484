@@ -12,7 +12,7 @@ from uuid import uuid4
 import anthropic
 from sqlalchemy import func, select, text
 
-from . import apps, features, runtime, secrets_vault
+from . import apps, automations, features, runtime, secrets_vault
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .display import dimensions
@@ -408,12 +408,17 @@ async def main():
     lock_pid = lock.execute(text("SELECT pg_backend_pid()")).scalar() if engine.dialect.name == "postgresql" else None
     tasks = set()
     feature_task = None
+    automation_task = None
     health_task = asyncio.create_task(scheduler_heartbeat())
     try:
         while True:
             if lock_pid is not None and lock.execute(text("SELECT pg_backend_pid()")).scalar() != lock_pid:
                 raise RuntimeError("Scheduler database session changed; stop to protect singleton ownership")
             await reconcile()
+            if automation_task is None or automation_task.done():
+                if automation_task is not None and automation_task.exception():
+                    log.error("Automation pass failed: %s", type(automation_task.exception()).__name__)
+                automation_task = asyncio.create_task(automations.tick())
             if feature_task is None or feature_task.done():
                 if feature_task is not None:
                     try:
@@ -440,6 +445,8 @@ async def main():
             await asyncio.sleep(2)
     finally:
         health_task.cancel()
+        if automation_task is not None:
+            automation_task.cancel()
         if feature_task is not None:
             feature_task.cancel()
             await asyncio.gather(feature_task, return_exceptions=True)

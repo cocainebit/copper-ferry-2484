@@ -59,6 +59,9 @@ MANAGE_ROUTES = {
     "/v1/computers/{cid}/secrets",
     "/v1/workspaces/{wid}/template-definitions",
     "/v1/templates/{tid}/rebuild",
+    "/v1/computers/{cid}/automations",
+    "/v1/automations/{aid}",
+    "/v1/automations/{aid}/run",
 }
 
 

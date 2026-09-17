@@ -2258,3 +2258,96 @@ button.file-row:hover {
 .registry-form .button {
   width: fit-content;
 }
+
+.automations-panel {
+  display: grid;
+  gap: 10px;
+}
+.automation {
+  border: 1px solid #242426;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #0f0f11;
+  font-size: 11px;
+  display: grid;
+  gap: 6px;
+}
+.automation.off {
+  opacity: 0.6;
+}
+.automation p {
+  margin: 0;
+  color: #9a9aa2;
+  overflow-wrap: anywhere;
+}
+.automation-runs {
+  display: grid;
+  gap: 4px;
+}
+.automation-runs summary {
+  cursor: pointer;
+  color: #9a9aa2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.run-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #555;
+  display: inline-block;
+}
+.run-dot.succeeded {
+  background: #6fbf8a;
+}
+.run-dot.failed {
+  background: #d27b7b;
+}
+.run-dot.running,
+.run-dot.waiting_computer,
+.run-dot.queued {
+  background: #d8b86a;
+}
+.automation-form {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #1f1f22;
+  padding-top: 6px;
+  font-size: 11px;
+}
+.automation-form label {
+  display: grid;
+  gap: 4px;
+  color: #8a8a92;
+}
+.automation-form input,
+.automation-form select,
+.automation-form textarea {
+  background: #0b0b0d;
+  border: 1px solid #2a2a2e;
+  border-radius: 6px;
+  color: #ddd;
+  font: inherit;
+  padding: 5px 8px;
+}
+.automation-form .inline-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.automation-form .inline-check input {
+  width: auto;
+}
+.automation-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.automation-row label {
+  flex: 1;
+  min-width: 160px;
+}
+.automation-form .button {
+  width: fit-content;
+}

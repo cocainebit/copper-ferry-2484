@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .api_keys import router as api_keys_router
 from .apps import router as apps_router
+from .automations import router as automations_router
 from .billing import router as billing_router
 from .computer_api import router as computer_api_router
 from .config import settings
@@ -615,6 +616,7 @@ app.include_router(computer_api_router)
 app.include_router(secrets_router)
 app.include_router(apps_router)
 app.include_router(template_registry_router)
+app.include_router(automations_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

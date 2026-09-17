@@ -33,6 +33,7 @@ import {
   Trash2,
   Pencil,
   Package,
+  Timer,
 } from "lucide-react";
 import {
   api,
@@ -51,6 +52,7 @@ import { ApiKeys } from "@/components/api-keys";
 import { Secrets } from "@/components/secrets";
 import { AppsPanel } from "@/components/apps";
 import { TemplateRegistry } from "@/components/template-registry";
+import { AutomationsPanel } from "@/components/automations";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -660,6 +662,7 @@ export default function Dashboard() {
                     ["files", Folder],
                     ["terminal", Terminal],
                     ["apps", Package],
+                    ["automations", Timer],
                     ["activity", Activity],
                   ].map(([label, Icon]) => {
                     const I = Icon as typeof Folder;
@@ -845,6 +848,12 @@ export default function Dashboard() {
                       </form>
                     </div>
                   )
+                ) : tab === "automations" ? (
+                  <AutomationsPanel
+                    key={computer.id}
+                    computer={computer}
+                    owner={workspace.role === "owner"}
+                  />
                 ) : tab === "apps" ? (
                   <AppsPanel
                     key={computer.id}
