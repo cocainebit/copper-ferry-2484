@@ -132,3 +132,12 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - Platform behaviour to know: creating any charge fails with 503 while the platform has no payment options configured, including for unpriced SKUs, so Cubicle checks `/internal/v1/prices` first and only asks for a charge when the SKU is priced. Reported to the platform session.
 - Failure policy: a platform outage or misconfiguration never stops or fails a running desktop. It keeps running, records one event, and retries. That is deliberate and means an outage can give away runtime.
 - Not done: identity cutover (JWKS in `security.identity`), mapping workspaces to platform organizations, and remapping stored user ids. The credit ledger and Cubicle's own x402 rail stay until then.
+
+## Identity cutover (September 17, 2026)
+
+- Cubicle verifies Instance platform tokens (JWKS at `{PLATFORM_ISSUER}/jwks`, audience `PLATFORM_AUDIENCE`) and still accepts Supabase sessions, the local development token and `cbk_` API keys. Supabase is not removed yet; it stays until every account has moved.
+- The platform signs with **Ed25519 (EdDSA)**, not ES256 or RS256. A verifier pinned to the usual pair rejects every real token.
+- Linking is one way and runs on first platform sign-in: verified email first, linked wallet address second, then rewriting stored user ids in one transaction. Ambiguity is never resolved by guessing; the account becomes a new member instead and the legacy data is untouched.
+- Wallet-only platform accounts have no email at all, so email-only matching silently misses them. That is why wallet matching exists.
+- Charges carry the platform organization id once a workspace is mapped; before that they carry nothing rather than Cubicle's own workspace id.
+- Still open: nothing removes Supabase or Cubicle's own credit ledger yet, and no production identity project exists. A real end-to-end sign-in on this machine needs the platform running with `OAUTH_RESOURCES` set (it is, locally).

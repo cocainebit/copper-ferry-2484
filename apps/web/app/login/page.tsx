@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Github, Mail } from "lucide-react";
 import { supabase } from "@/lib/api";
+import { platformConfigured, startSignIn } from "@/lib/platform-auth";
 import { Mark } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 export default function Login() {
@@ -14,6 +15,17 @@ export default function Login() {
   function destination() {
     const path = sessionStorage.getItem("auth-return") || "/app";
     return path.startsWith("/invite?token=") ? path : "/app";
+  }
+  async function platform() {
+    sessionStorage.removeItem("use-local-workspace");
+    setError("");
+    setBusy(true);
+    try {
+      await startSignIn();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
   }
   async function oauth(provider: "google" | "github") {
     sessionStorage.removeItem("use-local-workspace");
@@ -72,6 +84,17 @@ export default function Login() {
           starts here.
         </h1>
         <p className="muted">Sign in or create your workspace.</p>
+        {platformConfigured() && (
+          <>
+            <Button disabled={busy} onClick={platform}>
+              Continue with Instance
+              <ArrowRight size={16} />
+            </Button>
+            <div className="divider">
+              <span>or continue another way</span>
+            </div>
+          </>
+        )}
         <Button variant="ghost" disabled={busy} onClick={() => oauth("google")}>
           <span className="google-g">G</span>Continue with Google
         </Button>

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # Instance platform (pay per action, SPEC v0.2). Unset means Cubicle bills on its own ledger.
     platform_url: str = ""
     platform_service_token: str = ""
+    # OIDC access tokens minted by the platform. Both must be set before those tokens are accepted;
+    # the JWKS lives at "{platform_issuer}/jwks", per the platform's discovery document.
+    platform_issuer: str = ""
+    platform_audience: str = ""
     # How long a desktop keeps running while the next hour is unpaid, and how early we ask for it.
     runtime_grace_minutes: int = 5
     anthropic_model: str = "claude-sonnet-4-6"

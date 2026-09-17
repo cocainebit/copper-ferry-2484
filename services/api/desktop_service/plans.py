@@ -235,6 +235,12 @@ def buy(
     return pass_public(row)
 
 
+def organization_for(db, wid):
+    from .runtime_billing import organization_for as mapped
+
+    return mapped(db, wid)
+
+
 def platform_sku(plan_id):
     return f"cubicle.pass.{plan_id}"
 
@@ -268,7 +274,7 @@ def buy_with_charge(db, wid, plan, idempotency_key, user):
                 f"workspace:{wid}:pass:{plan['id']}:{idempotency_key}",
                 idempotency_key=key,
                 description=f"Cubicle {plan['name']}",
-                organization_id=wid,
+                organization_id=organization_for(db, wid),
             )
             if result.get("free"):
                 row.status = "active"

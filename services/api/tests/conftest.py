@@ -15,8 +15,8 @@ def isolated_platform(monkeypatch):
     """Tests never inherit the developer's platform configuration from .env."""
     from desktop_service.config import settings
 
-    monkeypatch.setattr(settings(), "platform_url", "")
-    monkeypatch.setattr(settings(), "platform_service_token", "")
+    for field in ("platform_url", "platform_service_token", "platform_issuer", "platform_audience"):
+        monkeypatch.setattr(settings(), field, "")
 
 
 @pytest.fixture

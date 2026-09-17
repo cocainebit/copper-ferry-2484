@@ -58,6 +58,7 @@ import { AutomationsPanel } from "@/components/automations";
 import { Fleet } from "@/components/fleet";
 import { Passes } from "@/components/passes";
 import { RuntimeStrip } from "@/components/runtime-strip";
+import { platformSignOut } from "@/lib/platform-auth";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -447,6 +448,7 @@ export default function Dashboard() {
             title="Sign out"
             aria-label="Sign out"
             onClick={async () => {
+              platformSignOut();
               await supabase?.auth.signOut();
               location.href = "/";
             }}

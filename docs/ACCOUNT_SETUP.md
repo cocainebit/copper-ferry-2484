@@ -67,3 +67,35 @@ Token-holder trials remain a separate service-specific entitlement. Their origin
 Owners can query `GET /v1/workspaces/{workspace_id}/setup` for configuration status. This reports presence, not external provider health. It contains no secret values. Public launch still requires actual end-to-end tests and production monitoring.
 
 References: [Supabase local configuration](https://supabase.com/docs/guides/local-development/cli/config), [Supabase local email templates](https://supabase.com/docs/guides/local-development/customizing-email-templates).
+
+## Signing in through Instance (platform identity)
+
+Cubicle accepts access tokens issued by the Instance platform alongside its own Supabase sessions, so the two work at once while accounts move across.
+
+Configure the API (`services/api/.env`):
+
+```dotenv
+PLATFORM_URL=http://127.0.0.1:8760
+PLATFORM_SERVICE_TOKEN=<from: cd ~/platform && pnpm admin service create cubicle cubicle>
+PLATFORM_ISSUER=http://127.0.0.1:8760/api/auth
+PLATFORM_AUDIENCE=http://127.0.0.1:8000
+```
+
+and the dashboard (`apps/web/.env.local`):
+
+```dotenv
+NEXT_PUBLIC_PLATFORM_URL=http://127.0.0.1:8760
+NEXT_PUBLIC_PLATFORM_CLIENT_ID=<from: pnpm admin client create Cubicle http://127.0.0.1:3000/auth/callback http://127.0.0.1:8000>
+```
+
+The platform must run with `OAUTH_RESOURCES=<Cubicle API URL>` so its tokens carry that audience. Verification checks issuer, audience, expiry and signature against the platform's JWKS (`{issuer}/jwks`); better-auth signs with Ed25519, and ES256 and RS256 are accepted for the other key types it can be configured with. Tokens that are not platform tokens fall through to Supabase, so nothing breaks mid-migration.
+
+The browser uses the authorization code flow with PKCE (S256) as a public client: no client secret ever reaches the dashboard. Tokens are kept per browser and refreshed with the refresh token.
+
+### What linking does to existing data
+
+The first time a platform account signs in, Cubicle adopts the matching legacy identity and rewrites every stored user id (workspace membership, API key owners, trial entitlements and intents, automations, secrets and passes) in one transaction, then records the link so it happens once.
+
+It finds the legacy identity by verified email, and failing that by a linked wallet address, because a wallet sign-in creates an account with no email at all. It never merges two different legacy users into one account: when the keys disagree, or either matches more than one legacy user, the sign-in is treated as a new member and the data is left alone.
+
+Workspaces are mapped to the payer's platform organization (matched by its `personal-<user id>` slug), which is what charges are recorded against. Two workspaces may share one organization; the only effect is that their charges appear together in that person's payment history.

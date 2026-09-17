@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from functools import lru_cache
 from pathlib import Path
@@ -8,10 +9,12 @@ from cryptography.fernet import Fernet
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
+from sqlalchemy.orm import Session as OrmSession
 
 from .config import settings
 from .db import Member, Workspace, database
 
+log = logging.getLogger(__name__)
 bearer = HTTPBearer(auto_error=False)
 
 
@@ -45,6 +48,38 @@ def jwks():
     return jwt.PyJWKClient(settings().supabase_url + "/auth/v1/.well-known/jwks.json")
 
 
+@lru_cache
+def platform_jwks():
+    return jwt.PyJWKClient(settings().platform_issuer + "/jwks")
+
+
+def platform_identity(token):
+    """The user behind a platform access token, or None when it is not one (or platform auth is off)."""
+    config = settings()
+    if not (config.platform_issuer and config.platform_audience):
+        return None
+    try:
+        # Route on the unverified issuer so Supabase tokens never reach the platform's JWKS endpoint.
+        if jwt.decode(token, options={"verify_signature": False}).get("iss") != config.platform_issuer:
+            return None
+        key = platform_jwks().get_signing_key_from_jwt(token).key
+        claims = jwt.decode(
+            token,
+            key,
+            # better-auth signs with Ed25519 by default; ES256 and RS256 cover the other key types it offers.
+            algorithms=["EdDSA", "ES256", "RS256"],
+            audience=config.platform_audience,
+            issuer=config.platform_issuer,
+            options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+        )
+    except Exception:
+        return None
+    if not claims.get("sub"):
+        return None
+    email = claims.get("email", "")
+    return {"id": claims["sub"], "email": email, "verified": bool(email), "platform": True}
+
+
 def identity(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     request: Request = None,
@@ -63,6 +98,21 @@ def identity(
             raise HTTPException(401, "API key is invalid, expired or revoked")
         authorize_request(user, request)
         return user
+    user = platform_identity(token)
+    if user:
+        # Linking runs only with a real session: identity() is also called directly in tests.
+        if isinstance(db, OrmSession):
+            try:
+                from . import identity_link
+
+                user = identity_link.ensure_linked(db, user) or user
+            except Exception:
+                # A linking failure must never lock someone out of a verified account.
+                log.exception("Could not link platform identity %s", user["id"])
+        return user
+    # Supabase stays in the chain during the migration, so both token sources work at once.
+    if not settings().supabase_url:
+        raise HTTPException(401, "Session expired; please sign in again")
     try:
         key = jwks().get_signing_key_from_jwt(token).key
         claims = jwt.decode(

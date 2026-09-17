@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api, token, supabase } from "@/lib/api";
+import { platformSignOut } from "@/lib/platform-auth";
 import { Button } from "@/components/ui/button";
 import { Mark } from "@/components/brand";
 export default function Invite() {
@@ -47,6 +48,7 @@ export default function Invite() {
               "auth-return",
               location.pathname + location.search,
             );
+            platformSignOut();
             await supabase?.auth.signOut({ scope: "local" });
             location.href = "/login";
           }}

@@ -9,6 +9,7 @@ from . import (
     automations,  # noqa: F401
     crypto_models,  # noqa: F401
     feature_models,  # noqa: F401
+    identity_link,  # noqa: F401
     payment_models,  # noqa: F401
     plans,  # noqa: F401
     runtime_billing,  # noqa: F401
@@ -31,6 +32,11 @@ def upgrade():
     if "pty_secret" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN pty_secret TEXT"))
+
+    workspace_columns = {column["name"] for column in inspect(engine).get_columns("workspaces")}
+    if "platform_organization_id" not in workspace_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE workspaces ADD COLUMN platform_organization_id VARCHAR"))
 
     if "plan_passes" in inspect(engine).get_table_names():
         names = {column["name"] for column in inspect(engine).get_columns("plan_passes")}

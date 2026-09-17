@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { platformToken } from "@/lib/platform-auth";
 export const supabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -14,6 +15,8 @@ export async function token() {
     sessionStorage.getItem("use-local-workspace") === "true"
   )
     return "local-development-only";
+  const platform = await platformToken();
+  if (platform) return platform;
   if (supabase)
     return (await supabase.auth.getSession()).data.session?.access_token || "";
   return process.env.NEXT_PUBLIC_DEV_MODE === "true"

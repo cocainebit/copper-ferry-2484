@@ -37,6 +37,8 @@ class Workspace(Base):
     topup: Mapped[int] = mapped_column(Integer, default=0)
     period_end: Mapped[datetime | None] = mapped_column(DateTime)
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The Instance platform organization this workspace bills against; set by identity_link.
+    platform_organization_id: Mapped[str | None] = mapped_column(String)
 
 
 class Member(Base):

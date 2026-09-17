@@ -61,6 +61,15 @@ def hour_start(moment):
     return moment.replace(minute=0, second=0, microsecond=0)
 
 
+def organization_for(db, workspace_id):
+    """The platform organization a workspace is mapped to, or None before the identity cutover."""
+    try:
+        from . import identity_link
+    except ImportError:
+        return None
+    return identity_link.organization_for(db, workspace_id)
+
+
 def subject_for(computer_id, starts_at):
     return f"desktop:{computer_id}:{starts_at.isoformat()}Z"
 
@@ -140,6 +149,7 @@ def open_next(db, c, starts_at):
         subject,
         idempotency_key=subject,
         description=f"{c.name}: one hour of runtime",
+        organization_id=organization_for(db, c.workspace_id),
         expires_in_seconds=CHARGE_TTL_SECONDS,
     )
     if result.get("free"):
