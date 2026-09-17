@@ -2059,3 +2059,16 @@ button.file-row:hover {
   color: #616169;
   font-size: 10px;
 }
+.settings-card .scope-list label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  width: auto;
+}
+.settings-card .scope-list input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}

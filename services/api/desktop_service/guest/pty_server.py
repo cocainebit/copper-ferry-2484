@@ -3,8 +3,9 @@
 The API injects this file at every boot (fresh image or saved snapshot) and launches it as root before
 the desktop drops privileges, so saved systems always run the current version. It listens on all sandbox
 interfaces because the OpenSandbox endpoint proxy connects over the container network, and every
-handshake must present the per-computer token the API passed in PTY_TOKEN. Without a token it refuses
-all connections.
+handshake must present the token the API passed in PTY_TOKEN, either as a Bearer header or as the
+"token" query parameter (the proxy strips Authorization, so the API uses the query form and rotates the
+token at every boot). Without a token it refuses all connections.
 
 One websocket connection is one shell session. Binary frames carry raw PTY bytes in both directions;
 text frames are small JSON control messages:

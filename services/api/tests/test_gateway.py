@@ -106,8 +106,9 @@ def test_pty_relays_bytes_and_resize_control_frames(client, db, running, monkeyp
             ws.receive_bytes()
     assert remote.sent == [b"ls\n", '{"resize":[100,30]}']
     target, kwargs = remote.connects[0]
-    assert target == "ws://sandbox-host:7681/"
-    assert kwargs["additional_headers"] == {"X-Proxy": "1", "Authorization": "Bearer shell-token"}
+    # The OpenSandbox proxy drops Authorization, so the token rides in the query string.
+    assert target == "ws://sandbox-host:7681/?token=shell-token"
+    assert kwargs["additional_headers"] == {"X-Proxy": "1"}
     assert db.scalar(select(Event).where(Event.computer_id == running.id, Event.text.like("%terminal%")))
 
 

@@ -229,7 +229,7 @@ export function PlatformFeatures({
         next start.{" "}
         {quotaEnforced
           ? "The storage tier is a hard limit on this runtime."
-          : "On this runtime the storage tier bounds clone copies and is shown against usage; it is not yet a hard disk limit."}
+          : "On this runtime the storage tier bounds clone copies and is shown against usage; it is not yet a hard disk limit."}{" "}
         Always on keeps background work running without an open dashboard.
         Runtime charges continue; credit exhaustion still stops the computer.
       </p>

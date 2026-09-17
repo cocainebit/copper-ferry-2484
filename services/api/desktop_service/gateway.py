@@ -2,6 +2,7 @@ import asyncio
 import json
 import secrets
 from datetime import timedelta, timezone
+from urllib.parse import quote
 
 import jwt
 import websockets
@@ -158,9 +159,10 @@ async def pty(ws: WebSocket, cid: str, ticket: str):
             event(db, cid, "Interactive terminal opened", "activity")
             db.commit()
         endpoint, headers = await runtime.endpoint(sid, 7681)
-        # The guest server refuses handshakes without this per-computer token.
-        headers = {**headers, "Authorization": "Bearer " + token}
-        await proxy(ws, cid, claims, sid, sandbox_url(endpoint, "/"), headers, True, text_frames=True)
+        # The guest server refuses handshakes without this per-sandbox token. The OpenSandbox proxy
+        # strips Authorization, so it travels as a query parameter; the worker rotates it every start.
+        target = sandbox_url(endpoint, "/?token=" + quote(token, safe=""))
+        await proxy(ws, cid, claims, sid, target, headers, True, text_frames=True)
     except (Exception, WebSocketDisconnect):
         pass
     finally:

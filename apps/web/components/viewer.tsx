@@ -30,6 +30,7 @@ export function Viewer({
     if (computer.status !== "running") return;
     let disposed = false;
     let rfb: any;
+    let live = false;
     setStatus("Connecting");
     (async () => {
       try {
@@ -51,9 +52,13 @@ export function Viewer({
         rfb.resizeSession = false;
         rfb.viewOnly = !ticket.control;
         rfbRef.current = rfb;
+        live = true;
         setControl(!!ticket.control);
         rfb.addEventListener("connect", () => setStatus("Connected"));
-        rfb.addEventListener("disconnect", () => setStatus("Disconnected"));
+        rfb.addEventListener("disconnect", () => {
+          live = false;
+          setStatus("Disconnected");
+        });
         rfb.addEventListener("securityfailure", () =>
           setStatus("Connection rejected"),
         );
@@ -69,7 +74,8 @@ export function Viewer({
     return () => {
       disposed = true;
       rfbRef.current = null;
-      rfb?.disconnect();
+      // noVNC logs an error when disconnect() is called on an already-closed session.
+      if (live) rfb?.disconnect();
     };
   }, [computer.id, computer.status, computer.controller, attempt]);
   function sendToDesktop(text: string) {

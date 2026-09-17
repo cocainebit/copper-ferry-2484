@@ -662,7 +662,11 @@ export default function Dashboard() {
                         role="tab"
                         aria-selected={tab === label}
                         className={tab === label ? "selected" : ""}
-                        onClick={() => setTab(String(label))}
+                        onClick={() => {
+                          // Re-opening the terminal tab retries the interactive shell.
+                          if (label === "terminal") setTerminalNote("");
+                          setTab(String(label));
+                        }}
                       >
                         <I size={14} />
                         {String(label)}
