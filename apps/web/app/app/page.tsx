@@ -34,6 +34,8 @@ import {
   Pencil,
   Package,
   Timer,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from "lucide-react";
 import {
   api,
@@ -84,6 +86,7 @@ export default function Dashboard() {
   const [createCpu, setCreateCpu] = useState(2);
   const [createMemory, setCreateMemory] = useState(4);
   const [createStorage, setCreateStorage] = useState(20);
+  const [railOpen, setRailOpen] = useState(false);
   const [createOs, setCreateOs] = useState("linux");
   const [createGpu, setCreateGpu] = useState(0);
   const [platform, setPlatform] = useState<{
@@ -185,6 +188,20 @@ export default function Dashboard() {
       setComputers(await api(`/workspaces/${id}/computers`));
     }
   }, [wid]);
+  useEffect(() => {
+    // Per-viewer convenience only; a blocked or empty store just leaves the rail collapsed.
+    try {
+      setRailOpen(localStorage.getItem("cubicle-rail") === "open");
+    } catch {}
+  }, []);
+  function toggleRail() {
+    setRailOpen((open) => {
+      try {
+        localStorage.setItem("cubicle-rail", open ? "collapsed" : "open");
+      } catch {}
+      return !open;
+    });
+  }
   useEffect(() => {
     (async () => {
       if (!(await token())) {
@@ -363,10 +380,26 @@ export default function Dashboard() {
   }
   return (
     <div className="app-shell">
-      <aside className="rail">
-        <Link href="/" aria-label="Home">
-          <Mark size={30} />
-        </Link>
+      <aside className={"rail" + (railOpen ? " open" : "")}>
+        <div className="rail-top">
+          <Link href="/" aria-label="Home" className="rail-home">
+            <Mark size={30} />
+            <span className="rail-label">Cubicle</span>
+          </Link>
+          <button
+            className="rail-toggle"
+            title={railOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={railOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={railOpen}
+            onClick={toggleRail}
+          >
+            {railOpen ? (
+              <PanelLeftClose size={17} />
+            ) : (
+              <PanelLeftOpen size={17} />
+            )}
+          </button>
+        </div>
         <div className="rail-main">
           <button
             className={view === "computers" ? "active" : ""}
@@ -375,6 +408,7 @@ export default function Dashboard() {
             onClick={() => nav("computers")}
           >
             <Monitor size={20} />
+            <span className="rail-label">Computers</span>
           </button>
           <button
             className={view === "billing" ? "active" : ""}
@@ -383,9 +417,11 @@ export default function Dashboard() {
             onClick={() => nav("billing")}
           >
             <CreditCard size={20} />
+            <span className="rail-label">Billing</span>
           </button>
           <Link href="/trial" title="Token trial" aria-label="Token trial">
             <Gift size={20} />
+            <span className="rail-label">Token trial</span>
           </Link>
         </div>
         <div className="rail-bottom">
@@ -395,6 +431,7 @@ export default function Dashboard() {
             onClick={() => setCreateOpen(true)}
           >
             <Plus size={20} />
+            <span className="rail-label">New computer</span>
           </button>
           <button
             className={view === "settings" ? "active" : ""}
@@ -403,6 +440,7 @@ export default function Dashboard() {
             onClick={() => nav("settings")}
           >
             <Settings size={20} />
+            <span className="rail-label">Settings</span>
           </button>
           <button
             title="Sign out"
@@ -413,8 +451,16 @@ export default function Dashboard() {
             }}
           >
             <LogOut size={18} />
+            <span className="rail-label">Sign out</span>
           </button>
-          <span className="avatar">Y</span>
+          <span className="rail-account">
+            <span className="avatar">
+              {(workspace?.name || "Y").slice(0, 1).toUpperCase()}
+            </span>
+            <span className="rail-account-name">
+              {workspace?.name || "Your workspace"}
+            </span>
+          </span>
         </div>
       </aside>
       <div className="app-main">

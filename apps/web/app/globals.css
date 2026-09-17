@@ -592,12 +592,51 @@ footer a {
   display: flex;
   flex-direction: column;
   align-items: center;
+  transition: width 140ms ease;
+}
+.rail.open {
+  width: 214px;
+  align-items: stretch;
+  padding: 22px 14px;
+}
+.rail-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.rail.open .rail-top {
+  justify-content: space-between;
+}
+.rail-home {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ddd;
+  font-size: 13px;
+  letter-spacing: -0.2px;
+}
+.rail-toggle {
+  color: #5f5f67;
+}
+.rail:not(.open) .rail-top {
+  flex-direction: column;
+  gap: 10px;
+}
+.rail:not(.open) .rail-toggle {
+  width: 30px;
+  height: 30px;
 }
 .rail-main {
   margin-top: 65px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+.rail.open .rail-main {
+  margin-top: 40px;
+  gap: 4px;
 }
 .rail button,
 .rail-main a {
@@ -607,6 +646,51 @@ footer a {
   height: 38px;
   border-radius: 9px;
   color: #777;
+}
+.rail-label {
+  display: none;
+}
+.rail.open .rail-label {
+  display: inline;
+}
+.rail.open .rail-main button,
+.rail.open .rail-main a,
+.rail.open .rail-bottom button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  justify-content: flex-start;
+}
+.rail.open .rail-toggle {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+}
+.rail-account {
+  display: grid;
+  place-items: center;
+}
+.rail.open .rail-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 0;
+}
+.rail-account-name {
+  display: none;
+  font-size: 11px;
+  color: #8a8a92;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail.open .rail-account-name {
+  display: inline;
 }
 .rail button:hover,
 .rail-main a:hover {
@@ -623,6 +707,10 @@ footer a {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+.rail.open .rail-bottom {
+  align-items: stretch;
+  gap: 4px;
 }
 .avatar {
   width: 29px;
@@ -1714,6 +1802,10 @@ footer a {
   .rail {
     width: 48px;
     padding: 17px 5px;
+  }
+  .rail.open {
+    width: 190px;
+    padding: 17px 10px;
   }
   .rail-main {
     margin-top: 35px;
