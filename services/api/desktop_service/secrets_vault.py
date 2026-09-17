@@ -183,7 +183,10 @@ def set_allowlist(cid: str, body: Allowlist, user=Depends(identity), db=Depends(
 
 @router.post("/computers/{cid}/secrets/refresh")
 async def refresh(cid: str, user=Depends(identity), db=Depends(database)):
+    from .providers import require_for
+
     c = owned(db, cid, user)
+    require_for(db, cid, "secrets")
     if c.status != "running" or not c.sandbox_id:
         raise HTTPException(409, "Start the computer first; stopped computers receive secrets at boot")
     count = await inject(db, c)

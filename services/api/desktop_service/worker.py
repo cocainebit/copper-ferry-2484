@@ -308,12 +308,19 @@ async def reconcile():
                     c.sandbox_id = await runtime.create(
                         c.id, unseal(c.vnc_secret), c.system_snapshot_id, pty_token=unseal(c.pty_secret)
                     )
-                    await screens.start_all(db, c)
-                    try:
-                        await secrets_vault.inject(db, c)
-                    except Exception:
-                        log.exception("Secret injection failed for %s", c.id)
-                        event(db, c.id, "Workspace secrets could not be injected; refresh them from settings.", "error")
+                    profile = db.get(DesktopProfile, c.id)
+                    if not profile or profile.os == "linux":
+                        await screens.start_all(db, c)
+                        try:
+                            await secrets_vault.inject(db, c)
+                        except Exception:
+                            log.exception("Secret injection failed for %s", c.id)
+                            event(
+                                db,
+                                c.id,
+                                "Workspace secrets could not be injected; refresh them from settings.",
+                                "error",
+                            )
                     c.status = "running"
                     c.error = None
                     c.last_active = now()
@@ -356,6 +363,12 @@ async def reconcile():
                     leased = db.scalar(select(Run).where(Run.computer_id == c.id, Run.lease.is_not(None)))
                     if leased:
                         continue
+                    profile = db.get(DesktopProfile, c.id)
+                    if c.sandbox_id and profile and profile.os == "windows":
+                        # The Windows disk lives in the persistent storage volume; there is no system snapshot.
+                        await runtime.stop(c.sandbox_id)
+                        c.sandbox_id = None
+                        db.commit()
                     if c.sandbox_id:
                         if c.status == "stopping":
                             previous = c.system_snapshot_id

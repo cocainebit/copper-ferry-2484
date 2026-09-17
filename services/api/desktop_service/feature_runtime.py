@@ -17,7 +17,17 @@ from .feature_models import DesktopProfile
 def resource_for(cid):
     with database_models.Session() as db:
         profile = db.get(DesktopProfile, cid)
-        return {"cpu": str(profile.cpu if profile else 2), "memory": f"{profile.memory_gib if profile else 4}Gi"}
+        resource = {"cpu": str(profile.cpu if profile else 2), "memory": f"{profile.memory_gib if profile else 4}Gi"}
+        if profile and profile.gpu:
+            # OpenSandbox maps this to Docker DeviceRequests or nvidia.com/gpu on Kubernetes.
+            resource["gpu"] = str(profile.gpu)
+        return resource
+
+
+def os_for(cid):
+    with database_models.Session() as db:
+        profile = db.get(DesktopProfile, cid)
+        return profile.os if profile else "linux"
 
 
 def resolution_for(cid):

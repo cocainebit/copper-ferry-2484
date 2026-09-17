@@ -90,7 +90,10 @@ def list_screens(cid: str, user=Depends(identity), db=Depends(database)):
 
 @router.post("/computers/{cid}/screens", status_code=201)
 async def add_screen(cid: str, body: ScreenBody, user=Depends(identity), db=Depends(database)):
+    from .providers import require_for
+
     c = lookup(db, cid, user, owner=True)
+    require_for(db, cid, "screens")
     taken = set(db.scalars(select(ComputerScreen.number).where(ComputerScreen.computer_id == cid)))
     free = [n for n in range(1, MAX_EXTRA + 1) if n not in taken]
     if not free:

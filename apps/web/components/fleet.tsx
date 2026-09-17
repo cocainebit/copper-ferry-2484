@@ -23,6 +23,8 @@ type FleetComputer = {
   memory_gib: number;
   storage_gib: number;
   resolution: string;
+  os: string;
+  gpu: number;
   screens: number;
   automations: number;
   usage_24h_minutes: number;
@@ -273,8 +275,9 @@ export function Fleet({
                 <div>
                   <h3>{c.name}</h3>
                   <p>
-                    Linux · {c.cpu} vCPU · {c.memory_gib} GiB RAM ·{" "}
-                    {c.storage_gib} GiB
+                    {c.os === "windows" ? "Windows" : "Linux"} · {c.cpu} vCPU ·{" "}
+                    {c.memory_gib} GiB RAM · {c.storage_gib} GiB
+                    {c.gpu ? ` · ${c.gpu} GPU` : ""}
                   </p>
                   <p>
                     {hours(c.usage_24h_minutes)} today

@@ -235,6 +235,15 @@ def list_automations(cid: str, user=Depends(identity), db=Depends(database)):
 @router.post("/computers/{cid}/automations", status_code=201)
 def create_automation(cid: str, body: AutomationBody, user=Depends(identity), db=Depends(database)):
     c = owned_computer(db, cid, user)
+    from .feature_models import DesktopProfile
+
+    profile = db.get(DesktopProfile, cid)
+    if (
+        profile
+        and profile.os == "windows"
+        and (body.action.kind in ("command", "agent_task") or body.trigger.kind in ("file", "process"))
+    ):
+        raise HTTPException(409, "Windows computers support scheduled, interval and webhook start or stop automations")
     if db.scalar(select(func.count()).select_from(Automation).where(Automation.computer_id == cid)) >= MAX_PER_COMPUTER:
         raise HTTPException(409, f"A computer holds at most {MAX_PER_COMPUTER} automations")
     token = None

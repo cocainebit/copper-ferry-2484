@@ -56,6 +56,8 @@ export type Computer = {
   memory_gib?: number;
   storage_gib?: number;
   resolution?: string;
+  os?: string;
+  gpu?: number;
 };
 export type Workspace = {
   id: string;

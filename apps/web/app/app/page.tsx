@@ -83,6 +83,21 @@ export default function Dashboard() {
   const [createCpu, setCreateCpu] = useState(2);
   const [createMemory, setCreateMemory] = useState(4);
   const [createStorage, setCreateStorage] = useState(20);
+  const [createOs, setCreateOs] = useState("linux");
+  const [createGpu, setCreateGpu] = useState(0);
+  const [platform, setPlatform] = useState<{
+    operating_systems: {
+      id: string;
+      name: string;
+      available: boolean;
+      reason: string | null;
+    }[];
+    gpu: {
+      available: boolean;
+      max_per_computer: number;
+      reason: string | null;
+    };
+  } | null>(null);
   const [createResolution, setCreateResolution] = useState("1440x900");
   const [createIdleTimeout, setCreateIdleTimeout] = useState(15);
   const [createTemplate, setCreateTemplate] = useState("");
@@ -125,6 +140,13 @@ export default function Dashboard() {
     setCreateCpu(2);
     setCreateMemory(4);
     setCreateStorage(20);
+    setCreateOs("linux");
+    setCreateGpu(0);
+    api("/platform/capabilities")
+      .then((p) => {
+        if (active) setPlatform(p);
+      })
+      .catch(() => {});
     setCreateResolution("1440x900");
     setCreateIdleTimeout(15);
     setCreationError("");
@@ -291,6 +313,7 @@ export default function Dashboard() {
       cpu: createCpu,
       memory_gib: createMemory,
       storage_gib: createStorage,
+      ...(createTemplate ? {} : { os: createOs, gpu: createGpu }),
       resolution: createResolution,
       idle_timeout_minutes: createIdleTimeout,
     };
@@ -626,13 +649,19 @@ export default function Dashboard() {
               />
               <div className="bottom-panel">
                 <div className="tab-list" role="tablist">
-                  {[
-                    ["files", Folder],
-                    ["terminal", Terminal],
-                    ["apps", Package],
-                    ["automations", Timer],
-                    ["activity", Activity],
-                  ].map(([label, Icon]) => {
+                  {(computer.os === "windows"
+                    ? [
+                        ["automations", Timer],
+                        ["activity", Activity],
+                      ]
+                    : [
+                        ["files", Folder],
+                        ["terminal", Terminal],
+                        ["apps", Package],
+                        ["automations", Timer],
+                        ["activity", Activity],
+                      ]
+                  ).map(([label, Icon]) => {
                     const I = Icon as typeof Folder;
                     return (
                       <button
@@ -1249,6 +1278,71 @@ export default function Dashboard() {
               {workspace?.role !== "owner" && (
                 <p className="muted">
                   Workspace owners can create computers from templates.
+                </p>
+              )}
+              {!createTemplate && platform && (
+                <div className="creation-resources">
+                  <label>
+                    Operating system
+                    <select
+                      aria-label="Operating system"
+                      value={createOs}
+                      disabled={creating}
+                      onChange={(e) => {
+                        setCreateOs(e.target.value);
+                        if (e.target.value === "windows") {
+                          setCreateCpu(2);
+                          setCreateMemory(4);
+                          setCreateStorage(100);
+                          setCreateGpu(0);
+                        }
+                      }}
+                    >
+                      {platform.operating_systems.map((o) => (
+                        <option key={o.id} value={o.id} disabled={!o.available}>
+                          {o.name}
+                          {o.available ? "" : " (unavailable)"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    GPU
+                    <select
+                      aria-label="GPU"
+                      value={createGpu}
+                      disabled={
+                        creating ||
+                        !platform.gpu.available ||
+                        createOs !== "linux"
+                      }
+                      onChange={(e) => setCreateGpu(Number(e.target.value))}
+                    >
+                      <option value={0}>No GPU</option>
+                      {Array.from(
+                        { length: platform.gpu.max_per_computer },
+                        (_, i) => (
+                          <option key={i + 1} value={i + 1}>
+                            {i + 1} GPU
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                </div>
+              )}
+              {!createTemplate && platform && (
+                <p className="muted creation-note">
+                  {platform.operating_systems
+                    .filter((o) => !o.available)
+                    .map((o) => `${o.name}: ${o.reason}`)
+                    .join(" · ")}
+                  {platform.gpu.available
+                    ? ""
+                    : ` · GPU: ${platform.gpu.reason}`}
+                  {createOs === "windows"
+                    ? " · Windows needs 2 vCPU, 4 GiB and 100 GiB; its first start installs Windows and takes about 20 minutes. Terminal, apps, screens and the agent are Linux-only."
+                    : ""}
                 </p>
               )}
               <div className="creation-resources">

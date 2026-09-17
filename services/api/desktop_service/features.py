@@ -174,6 +174,9 @@ def clone(
     if old:
         return job_public(old)
     stopped(db, c)
+    from .providers import require_for
+
+    require_for(db, cid, "templates")
     if not c.system_snapshot_id:
         raise HTTPException(409, "Start and stop this computer once to save its system before cloning")
     target = reserve_computer(db, c.workspace_id, body.name, idempotency_key)
@@ -210,6 +213,9 @@ def save_template(
     if old:
         return job_public(old)
     stopped(db, c)
+    from .providers import require_for
+
+    require_for(db, cid, "templates")
     if not c.system_snapshot_id:
         raise HTTPException(409, "Start and stop this computer once to save its system before templating")
     if (

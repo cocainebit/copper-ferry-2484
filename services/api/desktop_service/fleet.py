@@ -177,6 +177,8 @@ def fleet(
                 "memory_gib": p.memory_gib if p else 4,
                 "storage_gib": p.storage_gib if p else 20,
                 "resolution": p.resolution if p else "1440x900",
+                "os": p.os if p else "linux",
+                "gpu": p.gpu if p else 0,
                 "screens": 1 + screens.get(c.id, 0),
                 "automations": automations.get(c.id, 0),
                 "usage_24h_minutes": minutes.get(c.id, 0),

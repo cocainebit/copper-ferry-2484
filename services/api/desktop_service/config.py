@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     desktop_image: str = "agent-desktop:local"
     # True only where the runtime sizes home volumes (OpenSandbox Kubernetes). Docker ignores PVC size.
     storage_quota_enforced: bool = False
+    # Windows computers use OpenSandbox's Windows profile; enable only on hosts with /dev/kvm and /dev/net/tun.
+    windows_enabled: bool = False
+    windows_image: str = "dockurr/windows:latest"
+    windows_version: str = "11"
+    windows_arch: str = "amd64"
+    # GPUs map to OpenSandbox resourceLimits.gpu; enable only on hosts with NVIDIA GPUs and the container toolkit.
+    gpu_enabled: bool = False
+    gpu_max_per_computer: int = 1
     anthropic_model: str = "claude-sonnet-4-6"
     max_desktops: int = 4
     paid_saved_computers: int = 2

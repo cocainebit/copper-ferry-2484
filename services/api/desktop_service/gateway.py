@@ -73,7 +73,10 @@ def ticket(cid: str, screen: int = 0, user=Depends(identity), db=Depends(databas
 
 @router.post("/v1/computers/{cid}/audio-ticket")
 def audio_ticket(cid: str, user=Depends(identity), db=Depends(database)):
+    from .providers import require_for
+
     authorize(db, cid, user)
+    require_for(db, cid, "audio")
     return {"ticket": issue(user, cid, "desktop-audio", False)}
 
 
@@ -101,7 +104,10 @@ async def audio(ws: WebSocket, cid: str, ticket: str):
 
 @router.post("/v1/computers/{cid}/terminal-ticket")
 def terminal_ticket(cid: str, user=Depends(identity), db=Depends(database)):
+    from .providers import require_for
+
     c = authorize(db, cid, user)
+    require_for(db, cid, "terminal")
     if c.controller != user["id"]:
         raise HTTPException(409, "Take control before opening the terminal")
     return {"ticket": issue(user, cid, "desktop-terminal", True)}
@@ -174,13 +180,18 @@ async def desktop(ws: WebSocket, cid: str, ticket: str):
         claims = redeem(ws, ticket, cid, "desktop-viewer")
         screen = int(claims.get("screen", 0))
         with models.Session() as db:
+            from .feature_models import DesktopProfile
+            from .providers import WINDOWS_CONSOLE_PORT
             from .screens import ports, require_screen
 
             c = authorize(db, cid, {"id": claims["sub"]})
             require_screen(db, cid, screen)
             control = claims["control"] and c.controller == claims["sub"]
             sid = c.sandbox_id
-        endpoint, headers = await runtime.endpoint(sid, ports(screen, control))
+            profile = db.get(DesktopProfile, cid)
+            windows = bool(profile and profile.os == "windows")
+        port = WINDOWS_CONSOLE_PORT if windows else ports(screen, control)
+        endpoint, headers = await runtime.endpoint(sid, port)
         await proxy(ws, cid, claims, sid, sandbox_url(endpoint, "/websockify"), headers, control)
     except (Exception, WebSocketDisconnect):
         pass

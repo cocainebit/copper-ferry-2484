@@ -56,6 +56,9 @@ def operator(db, cid, user):
         )
         if busy:
             raise HTTPException(409, "A built-in task is using this computer; cancel it first")
+    from .providers import require_for
+
+    require_for(db, cid, "computer_api")
     throttle(user.get("api_key") or user["id"], cid)
     return c
 

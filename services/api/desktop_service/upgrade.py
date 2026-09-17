@@ -54,6 +54,12 @@ def upgrade():
                     ("requires_secrets", "JSON"),
                 ):
                     connection.execute(text(f"ALTER TABLE desktop_templates ADD COLUMN {column} {kind}"))
+        if table == "desktop_profiles" and "os" not in names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE desktop_profiles ADD COLUMN os VARCHAR(16) NOT NULL DEFAULT 'linux'")
+                )
+                connection.execute(text("ALTER TABLE desktop_profiles ADD COLUMN gpu INTEGER NOT NULL DEFAULT 0"))
         if table == "desktop_profiles" and "secret_names" not in names:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE desktop_profiles ADD COLUMN secret_names JSON"))

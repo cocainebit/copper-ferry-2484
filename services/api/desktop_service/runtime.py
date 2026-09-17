@@ -10,7 +10,7 @@ from opensandbox.config import ConnectionConfig
 from opensandbox.exceptions import SandboxApiException
 from opensandbox.manager import SandboxManager
 from opensandbox.models.execd import RunCommandOpts
-from opensandbox.models.sandboxes import PVC, SandboxFilter, Volume
+from opensandbox.models.sandboxes import PVC, PlatformSpec, SandboxFilter, Volume
 
 from .config import settings
 from .display import dimensions
@@ -27,9 +27,40 @@ def connection():
     )
 
 
-async def create(cid, password, snapshot_id=None, pty_token=""):
-    from .feature_runtime import resolution_for, resource_for, storage_for
+async def create_windows(cid):
+    """Windows guest through OpenSandbox's Windows profile. First boot installs Windows and takes a while."""
+    from .feature_runtime import resource_for, storage_for
 
+    s = settings()
+    resource = resource_for(cid)
+    resource["memory"] = resource["memory"].removesuffix("Gi") + "G"
+    resource["disk"] = f"{max(64, storage_for(cid))}G"
+    sb = await Sandbox.create(
+        image=s.windows_image,
+        platform=PlatformSpec(os="windows", arch=s.windows_arch),
+        connection_config=connection(),
+        timeout=timedelta(hours=24),
+        ready_timeout=timedelta(minutes=45),
+        resource=resource,
+        metadata={"agent-desktop-id": cid, "agent-desktop-os": "windows"},
+        env={"VERSION": s.windows_version},
+        volumes=[
+            Volume(
+                name="storage",
+                pvc=PVC(claim_name="desktop-" + cid, create_if_not_exists=True, storage=resource["disk"] + "i"),
+                mount_path="/storage",
+            )
+        ],
+    )
+    await sb.close()
+    return sb.id
+
+
+async def create(cid, password, snapshot_id=None, pty_token=""):
+    from .feature_runtime import os_for, resolution_for, resource_for, storage_for
+
+    if os_for(cid) == "windows":
+        return await create_windows(cid)
     resolution = resolution_for(cid)
     dimensions(resolution)
     manager = await SandboxManager.create(connection_config=connection())

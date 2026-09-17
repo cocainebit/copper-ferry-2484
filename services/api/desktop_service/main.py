@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from . import providers
 from .api_keys import router as api_keys_router
 from .apps import router as apps_router
 from .automations import router as automations_router
@@ -93,6 +94,8 @@ class ComputerCreate(BaseModel):
     storage_gib: Literal[20, 50, 100] = 20
     resolution: Resolution = "1440x900"
     idle_timeout_minutes: int = Field(default=15, ge=0, le=1440, strict=True)
+    os: Literal["linux", "windows", "macos"] = "linux"
+    gpu: int = Field(default=0, ge=0, le=8)
 
 
 class KeyBody(BaseModel):
@@ -297,6 +300,8 @@ def computers(wid: str, user=Depends(identity), db=Depends(database)):
             "memory_gib": p.memory_gib if p else 4,
             "storage_gib": p.storage_gib if p else 20,
             "resolution": p.resolution if p else "1440x900",
+            "os": p.os if p else "linux",
+            "gpu": p.gpu if p else 0,
         }
         for c, p in rows
     ]
@@ -317,6 +322,7 @@ def create_computer(
     if balance(db, w) <= 0:
         raise HTTPException(402, "Add platform credits or activate a trial first")
     check_saved(db, w)
+    providers.validate(body.os, body.gpu, body.cpu, body.memory_gib, body.storage_gib)
     c = Computer(workspace_id=wid, name=body.name.strip(), request_id=idempotency_key)
     db.add(c)
     db.flush()
@@ -328,6 +334,8 @@ def create_computer(
             storage_gib=body.storage_gib,
             resolution=body.resolution,
             idle_timeout_minutes=body.idle_timeout_minutes,
+            os=body.os,
+            gpu=body.gpu,
         )
     )
     db.commit()
@@ -430,6 +438,7 @@ def submit(
     old = db.scalar(select(Run).where(Run.computer_id == cid, Run.request_id == idempotency_key))
     if old:
         return {"id": old.id, "status": old.status}
+    providers.require_for(db, cid, "agent")
     if c.status != "running" or c.controller != "agent":
         raise HTTPException(409, "Start the computer and return control to the agent")
     if not db.get(Credential, c.workspace_id):
@@ -610,6 +619,7 @@ app.include_router(template_registry_router)
 app.include_router(automations_router)
 app.include_router(screens_router)
 app.include_router(fleet_router)
+app.include_router(providers.router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

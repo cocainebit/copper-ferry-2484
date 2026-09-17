@@ -2528,3 +2528,8 @@ button.file-row:hover {
 .fleet-error {
   color: #d8b86a !important;
 }
+.dialog form > label > input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}

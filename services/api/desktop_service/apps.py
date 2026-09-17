@@ -266,7 +266,10 @@ async def install(cid: str, app_id: str, user=Depends(identity), db=Depends(data
     app = BY_ID.get(app_id)
     if not app:
         raise HTTPException(404, "Unknown app")
+    from .providers import require_for
+
     c = running_owner(db, cid, user)
+    require_for(db, cid, "apps")
     latest = current(db, cid)
     if app_id in latest and latest[app_id].status in ("installing", "removing"):
         raise HTTPException(409, "This app is already being changed")
