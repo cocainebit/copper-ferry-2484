@@ -22,6 +22,7 @@ test("template creation starts with template resources and waits for copy comple
           status: "ready",
           cpu: 1,
           memory_gib: 2,
+          storage_gib: 50,
           resolution: "1280x720",
           idle_timeout_minutes: 0,
         },
@@ -77,6 +78,7 @@ test("template creation starts with template resources and waits for copy comple
   await expect(dialog.getByLabel("CPU", { exact: true })).toHaveValue("1");
   await expect(dialog.getByLabel("Memory", { exact: true })).toHaveValue("2");
   await expect(dialog.getByLabel("Display resolution")).toHaveValue("1280x720");
+  await expect(dialog.getByLabel("Storage", { exact: true })).toHaveValue("50");
   await dialog.getByLabel("Display resolution").selectOption("1920x1080");
   await expect(dialog.getByLabel("Idle stop")).toHaveValue("0");
   await dialog.getByLabel("Memory", { exact: true }).selectOption("4");
@@ -92,6 +94,7 @@ test("template creation starts with template resources and waits for copy comple
     name: "From template",
     cpu: 1,
     memory_gib: 4,
+    storage_gib: 50,
     resolution: "1920x1080",
     idle_timeout_minutes: 0,
   });
