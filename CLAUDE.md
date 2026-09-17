@@ -10,7 +10,7 @@ Add your row before you write a file. Update it when you start, not when you fin
 
 | Who | Started | Working on | Files / area |
 | --- | --- | --- | --- |
-| Claude Code session d7672813 | 2026-09-17 11:45 | Took over from Codex. Finish storage tiers honestly, then P1 (terminal, clipboard, rename) and P3 (API keys, public computer API, SDK/CLI/MCP) | services/api, apps/web, packages, infra/desktop |
+| Claude Code session d7672813 | 2026-09-17 11:45 | Took over from Codex. DONE locally: storage tiers, P1 terminal/clipboard/rename, P3 keys/computer API/SDK/CLI/MCP. NEXT: live verification once Docker is back (rebuild image, fresh computer, terminal tab, CLI/MCP smoke, Playwright) | services/api, apps/web, packages, sdks, infra/desktop |
 | Codex thread 01a0a734 | 2026-09-15 | HALTED (usage limit, resets 2026-09-22 19:34). Its goal auto-continues if resumed; do not resume without syncing with this table | whole repo |
 
 ## Ports (this repo owns these)
