@@ -61,3 +61,16 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - There is no automated treasury refund or withdrawal UI. Establish refund terms and an operator reconciliation/adjustment procedure before accepting public payments. Do not merge test credits into a production balance database.
 - Proposed default Cubicle price is 3,334 micro-USDC/minute (~0.20 USDC/hour); pricing and infrastructure margins need review before live activation.
 - The previous Anthropic approval-review restriction still applies. No Anthropic key was supplied, so real autonomous model-driven desktop execution remains unverified.
+
+## Completion specification and creation controls
+
+- [Production completion specification](docs/COMPLETION_SPEC.md) defines twelve milestones, dependencies and measurable launch gates.
+- Create computer now accepts CPU/RAM and ready private templates, with atomic resource persistence, inline errors and copy progress. Supported sizes remain 1/2 CPU and 2/4 GiB; hard storage quotas and display resolution controls remain unfinished.
+- Latest verification: 154 backend tests and seven browser tests pass; TypeScript and Python lint checks pass. These checks do not change the external configuration or production acceptance blockers above.
+
+## Display customization and broader parity
+
+- Three display presets work in creation/settings, template inheritance and runtime startup. Actual X dimensions were verified in disposable network-isolated Docker containers for all presets. Startup rejects scripts that ignore selected geometry.
+- Existing database rows receive the default through an additive upgrade, tested for repeatability and legacy data preservation. Run upgrade before API/worker restart; production versioned migrations remain open.
+- [Full parity audit](docs/ORGO_PARITY.md) extends the intermediate v1 with OS providers, SDK/CLI/MCP, app integrations, resource addons, richer templates and streaming. These remain requirements of the full objective.
+- Current verification: 159 backend tests, seven browser tests, TypeScript checks and desktop image build pass. Public production readiness remains unproven.

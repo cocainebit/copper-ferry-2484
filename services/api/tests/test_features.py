@@ -241,3 +241,72 @@ def test_crypto_prepaid_access_allows_second_saved_computer(fc, db, source):
     db.commit()
     response = fc.post(f"/v1/computers/{source.id}/clone", json={"name": "Prepaid copy"})
     assert response.status_code == 202
+
+
+@pytest.mark.parametrize("overrides,expected", [({}, (2, 4)), ({"cpu": 1, "memory_gib": 2}, (1, 2))])
+def test_template_resource_selection(fc, db, overrides, expected):
+    template = DesktopTemplate(
+        workspace_id="w", name="Ready", status="ready", snapshot_id="snapshot", cpu=2, memory_gib=4
+    )
+    db.add(template)
+    db.commit()
+    response = fc.post(f"/v1/templates/{template.id}/computers", json={"name": "Custom", **overrides})
+    assert response.status_code == 202
+    profile = db.get(DesktopProfile, response.json()["target_id"])
+    assert (profile.cpu, profile.memory_gib) == expected
+
+
+def test_resolution_validation_and_preservation(fc, db, source):
+    endpoint = f"/v1/computers/{source.id}/profile"
+    assert fc.put(endpoint, json={"cpu": 1, "memory_gib": 2, "resolution": "1920x1080"}).status_code == 200
+    assert fc.get(endpoint).json()["resolution"] == "1920x1080"
+    assert fc.put(endpoint, json={"cpu": 2, "memory_gib": 4}).json()["resolution"] == "1920x1080"
+    assert fc.put(endpoint, json={"resolution": "9000x9000"}).status_code == 422
+    source.status = "running"
+    db.commit()
+    assert fc.put(endpoint, json={"resolution": "1280x720"}).status_code == 409
+
+
+def test_clone_and_template_preserve_resolution(fc, db, source):
+    db.add(DesktopProfile(computer_id=source.id, resolution="1280x720"))
+    db.commit()
+    result = fc.post(f"/v1/computers/{source.id}/clone", json={"name": "Copy"}).json()
+    assert db.get(DesktopProfile, result["target_id"]).resolution == "1280x720"
+    source.status = "stopped"
+    db.commit()
+    result = fc.post(
+        f"/v1/computers/{source.id}/templates",
+        json={"name": "Template"},
+        headers={"Idempotency-Key": "resolution-template"},
+    ).json()
+    assert db.get(DesktopTemplate, result["template_id"]).resolution == "1280x720"
+
+
+def test_resolution_upgrade_preserves_legacy_rows(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine, text
+
+    from desktop_service import upgrade
+
+    engine = create_engine("sqlite:///" + str(tmp_path / "legacy.db"))
+    with engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE desktop_profiles (computer_id VARCHAR PRIMARY KEY, cpu INTEGER, memory_gib INTEGER)")
+        )
+        connection.execute(text("INSERT INTO desktop_profiles VALUES ('legacy', 1, 2)"))
+        connection.execute(
+            text(
+                "CREATE TABLE desktop_templates (id VARCHAR PRIMARY KEY, workspace_id VARCHAR, name VARCHAR, status VARCHAR, snapshot_id VARCHAR, cpu INTEGER, memory_gib INTEGER, created_at DATETIME)"
+            )
+        )
+        connection.execute(text("INSERT INTO desktop_templates (id, cpu, memory_gib) VALUES ('template', 2, 4)"))
+    monkeypatch.setattr(upgrade, "engine", engine)
+    upgrade.upgrade()
+    upgrade.upgrade()
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT cpu, memory_gib, resolution FROM desktop_profiles")).one() == (
+            1,
+            2,
+            "1440x900",
+        )
+        assert connection.execute(text("SELECT resolution FROM desktop_templates")).scalar() == "1440x900"
+    engine.dispose()

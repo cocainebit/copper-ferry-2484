@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CryptoBilling } from "@/components/crypto-billing";
 import { PlatformFeatures } from "@/components/platform-features";
@@ -44,6 +44,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Mark } from "@/components/brand";
 import { Viewer } from "@/components/viewer";
+type CreationTemplate = {
+  id: string;
+  name: string;
+  status: string;
+  cpu: number;
+  memory_gib: number;
+  resolution: string;
+};
 type View = "computers" | "settings" | "billing";
 export default function Dashboard() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -58,6 +66,18 @@ export default function Dashboard() {
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createCpu, setCreateCpu] = useState(2);
+  const [createMemory, setCreateMemory] = useState(4);
+  const [createResolution, setCreateResolution] = useState("1440x900");
+  const [createTemplate, setCreateTemplate] = useState("");
+  const [creationTemplates, setCreationTemplates] = useState<
+    CreationTemplate[]
+  >([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesError, setTemplatesError] = useState("");
+  const [creationError, setCreationError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const creationLock = useRef(false);
   const [name, setName] = useState("My computer");
   const [filePath, setFilePath] = useState("");
   const [tab, setTab] = useState("files");
@@ -74,6 +94,36 @@ export default function Dashboard() {
   >([]);
   const [entitlements, setEntitlements] = useState<any>(null);
   const workspace = workspaces.find((w) => w.id === wid);
+  useEffect(() => {
+    if (!createOpen) return;
+    let active = true;
+    setCreateTemplate("");
+    setCreationTemplates([]);
+    setCreateCpu(2);
+    setCreateMemory(4);
+    setCreateResolution("1440x900");
+    setCreationError("");
+    setTemplatesError("");
+    if (workspace?.role !== "owner") {
+      setTemplatesLoading(false);
+      return;
+    }
+    setTemplatesLoading(true);
+    api<CreationTemplate[]>(`/workspaces/${wid}/templates`)
+      .then((result) => {
+        if (active)
+          setCreationTemplates(result.filter((t) => t.status === "ready"));
+      })
+      .catch((e) => {
+        if (active) setTemplatesError(e.message);
+      })
+      .finally(() => {
+        if (active) setTemplatesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [createOpen, wid, workspace?.role]);
   const computer = computers.find((c) => c.id === selected);
   const current = runs.find((r) =>
     ["queued", "running", "paused", "awaiting_approval"].includes(r.status),
@@ -205,12 +255,43 @@ export default function Dashboard() {
     });
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    await perform(async () => {
-      const c = await api(`/workspaces/${wid}/computers`, "POST", { name });
-      setSelected(c.id);
+    if (creationLock.current || !wid || !name.trim()) return;
+    creationLock.current = true;
+    setCreating(true);
+    setCreationError("");
+    const body = {
+      name: name.trim(),
+      cpu: createCpu,
+      memory_gib: createMemory,
+      resolution: createResolution,
+    };
+    try {
+      const result = createTemplate
+        ? await api<{ target_id: string }>(
+            `/templates/${createTemplate}/computers`,
+            "POST",
+            body,
+          )
+        : await api<Computer>(`/workspaces/${wid}/computers`, "POST", body);
+      const computerId = "target_id" in result ? result.target_id : result.id;
+      setSelected(computerId);
+      setView("computers");
       setCreateOpen(false);
-      await api(`/computers/${c.id}/actions/start`, "POST");
-    });
+      // The template worker will leave the copied computer stopped when ready.
+      if (!createTemplate) {
+        try {
+          await api(`/computers/${computerId}/actions/start`, "POST");
+        } catch (e) {
+          setError((e as Error).message);
+        }
+      }
+      await refresh();
+    } catch (e) {
+      setCreationError((e as Error).message);
+    } finally {
+      creationLock.current = false;
+      setCreating(false);
+    }
   }
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -480,7 +561,13 @@ export default function Dashboard() {
                       variant="ghost"
                       disabled={
                         busy ||
-                        ["starting", "stopping"].includes(computer.status)
+                        [
+                          "starting",
+                          "stopping",
+                          "copying",
+                          "customizing",
+                          "copy_failed",
+                        ].includes(computer.status)
                       }
                       onClick={() => action("start")}
                     >
@@ -928,11 +1015,20 @@ export default function Dashboard() {
           </>
         )}
       </div>
-      <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog.Root
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!creationLock.current) setCreateOpen(open);
+        }}
+      >
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay" />
           <Dialog.Content className="dialog">
-            <Dialog.Close className="dialog-close" aria-label="Close">
+            <Dialog.Close
+              className="dialog-close"
+              aria-label="Close"
+              disabled={creating}
+            >
               <X size={18} />
             </Dialog.Close>
             <div className="monitor-icon">
@@ -940,27 +1036,114 @@ export default function Dashboard() {
             </div>
             <Dialog.Title>A computer of your own.</Dialog.Title>
             <Dialog.Description>
-              Start with a clean Linux desktop. Make it yours.
+              Choose your Linux environment and resources. Your home files
+              persist across restarts.
             </Dialog.Description>
             <form onSubmit={create}>
               <label>
                 Computer name
                 <input
                   value={name}
+                  disabled={creating}
                   onChange={(e) => setName(e.target.value)}
                   required
                   maxLength={80}
                   autoFocus
                 />
               </label>
-              <div className="specs">
-                <span>Linux</span>
-                <span>2 vCPU</span>
-                <span>4 GB RAM</span>
-                <span>Persistent home</span>
+              <label>
+                Starting environment
+                <select
+                  value={createTemplate}
+                  disabled={
+                    creating ||
+                    templatesLoading ||
+                    workspace?.role !== "owner" ||
+                    !!templatesError
+                  }
+                  onChange={(e) => {
+                    setCreateTemplate(e.target.value);
+                    const template = creationTemplates.find(
+                      (t) => t.id === e.target.value,
+                    );
+                    setCreateCpu(template?.cpu || 2);
+                    setCreateMemory(template?.memory_gib || 4);
+                    setCreateResolution(template?.resolution || "1440x900");
+                  }}
+                >
+                  <option value="">Clean Linux desktop</option>
+                  {creationTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {templatesLoading && (
+                <p className="muted">Loading workspace templates…</p>
+              )}
+              {templatesError && (
+                <p role="status" className="muted">
+                  Templates unavailable: {templatesError}. You can still create
+                  a clean desktop.
+                </p>
+              )}
+              {workspace?.role !== "owner" && (
+                <p className="muted">
+                  Workspace owners can create computers from templates.
+                </p>
+              )}
+              <div className="creation-resources">
+                <label>
+                  CPU
+                  <select
+                    aria-label="CPU"
+                    value={createCpu}
+                    disabled={creating}
+                    onChange={(e) => setCreateCpu(Number(e.target.value))}
+                  >
+                    <option value={1}>1 vCPU</option>
+                    <option value={2}>2 vCPU</option>
+                  </select>
+                </label>
+                <label>
+                  Memory
+                  <select
+                    aria-label="Memory"
+                    value={createMemory}
+                    disabled={creating}
+                    onChange={(e) => setCreateMemory(Number(e.target.value))}
+                  >
+                    <option value={2}>2 GiB RAM</option>
+                    <option value={4}>4 GiB RAM</option>
+                  </select>
+                </label>
               </div>
-              <Button disabled={busy || !wid}>
-                {busy ? (
+              <label>
+                Display resolution
+                <select
+                  aria-label="Display resolution"
+                  value={createResolution}
+                  disabled={creating}
+                  onChange={(e) => setCreateResolution(e.target.value)}
+                >
+                  <option value="1280x720">1280 × 720</option>
+                  <option value="1440x900">1440 × 900</option>
+                  <option value="1920x1080">1920 × 1080</option>
+                </select>
+              </label>
+              <p className="muted creation-note">
+                {createTemplate
+                  ? "Templates copy installed software and system settings into a fresh home directory. Start the computer once its copy is ready."
+                  : "Linux desktop with a browser and terminal. Install tools and customize it after starting."}
+              </p>
+              {creationError && (
+                <p role="alert" className="error-banner">
+                  {creationError}
+                </p>
+              )}
+              <Button disabled={busy || creating || !wid}>
+                {creating ? (
                   <Loader2 className="spin" size={16} />
                 ) : (
                   <Plus size={16} />

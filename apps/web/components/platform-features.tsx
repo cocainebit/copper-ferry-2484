@@ -22,6 +22,7 @@ export function PlatformFeatures({
   const [name, setName] = useState("");
   const [cpu, setCpu] = useState(2);
   const [memory, setMemory] = useState(4);
+  const [resolution, setResolution] = useState("1440x900");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const stopped = computers.filter((c) => c.status === "stopped");
@@ -62,11 +63,14 @@ export function PlatformFeatures({
   useEffect(() => {
     let alive = true;
     if (cid)
-      api<{ cpu: number; memory_gib: number }>(`/computers/${cid}/profile`)
+      api<{ cpu: number; memory_gib: number; resolution: string }>(
+        `/computers/${cid}/profile`,
+      )
         .then((p) => {
           if (alive) {
             setCpu(p.cpu);
             setMemory(p.memory_gib);
+            setResolution(p.resolution || "1440x900");
           }
         })
         .catch((e) => {
@@ -150,15 +154,35 @@ export function PlatformFeatures({
             <option value={4}>4 GiB</option>
           </select>
         </label>
+        <label>
+          Display resolution{" "}
+          <select
+            aria-label="Display resolution"
+            value={resolution}
+            disabled={busy || !cid}
+            onChange={(e) => setResolution(e.target.value)}
+          >
+            <option value="1280x720">1280 × 720</option>
+            <option value="1440x900">1440 × 900</option>
+            <option value="1920x1080">1920 × 1080</option>
+          </select>
+        </label>
         <Button
           disabled={busy || !cid}
           onClick={() =>
-            act(`/computers/${cid}/profile`, "PUT", { cpu, memory_gib: memory })
+            act(`/computers/${cid}/profile`, "PUT", {
+              cpu,
+              memory_gib: memory,
+              resolution,
+            })
           }
         >
           Save resources
         </Button>
       </div>
+      <p className="muted">
+        CPU, memory, and display resolution apply on the next start.
+      </p>
       <label>
         New computer or template name{" "}
         <input

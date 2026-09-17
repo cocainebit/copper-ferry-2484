@@ -13,6 +13,14 @@ def upgrade():
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN system_snapshot_id VARCHAR"))
 
+    for table in ("desktop_profiles", "desktop_templates"):
+        names = {column["name"] for column in inspect(engine).get_columns(table)}
+        if "resolution" not in names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN resolution VARCHAR(20) NOT NULL DEFAULT '1440x900'")
+                )
+
     if engine.dialect.name == "postgresql":
         with engine.begin() as connection:
             for name in Base.metadata.tables:

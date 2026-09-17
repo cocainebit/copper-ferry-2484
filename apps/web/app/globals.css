@@ -1861,3 +1861,32 @@ button.file-row:hover {
   border-radius: 10px;
   width: 100%;
 }
+
+.creation-resources {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.dialog select {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  color: inherit;
+  background: #17191a;
+  border: 1px solid #333;
+  border-radius: 10px;
+}
+.dialog form > label {
+  display: block;
+  margin-bottom: 16px;
+}
+.creation-note {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 16px 0;
+}
+.dialog {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}

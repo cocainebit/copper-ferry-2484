@@ -329,3 +329,26 @@ def test_start_reports_offline_worker(client, db):
     assert result.status_code == 503
     db.refresh(db.get(Computer, cid))
     assert db.get(Computer, cid).status == "stopped"
+
+
+def test_create_saves_selected_resources(client, db):
+    from desktop_service.feature_models import DesktopProfile
+
+    response = client.post(
+        "/v1/workspaces/w/computers",
+        json={"name": " Small ", "cpu": 1, "memory_gib": 2},
+        headers={"Idempotency-Key": "resource-create-001"},
+    )
+    assert response.status_code == 201
+    profile = db.get(DesktopProfile, response.json()["id"])
+    assert (profile.cpu, profile.memory_gib) == (1, 2)
+    assert response.json()["name"] == "Small"
+
+
+@pytest.mark.parametrize(
+    "body", [{"name": "   "}, {"name": "Invalid", "cpu": 8}, {"name": "Invalid", "memory_gib": 32}]
+)
+def test_create_rejects_invalid_configuration(client, db, body):
+    response = client.post("/v1/workspaces/w/computers", json=body, headers={"Idempotency-Key": "invalid-create-001"})
+    assert response.status_code == 422
+    assert db.scalar(select(Computer)) is None

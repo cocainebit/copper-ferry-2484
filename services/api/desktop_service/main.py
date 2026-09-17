@@ -32,7 +32,9 @@ from .db import (
     event,
     now,
 )
+from .display import Resolution
 from .entitlements import ChainVerifier, activate, balance, create_intent
+from .feature_models import DesktopProfile
 from .features import router as features_router
 from .gateway import router as gateway_router
 from .onboarding import router as onboarding_router
@@ -73,6 +75,13 @@ app.add_middleware(
 
 class Named(BaseModel):
     name: str = Field(min_length=1, max_length=80)
+
+
+class ComputerCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80, pattern=r"\S")
+    cpu: Literal[1, 2] = 2
+    memory_gib: Literal[2, 4] = 4
+    resolution: Resolution = "1440x900"
 
 
 class KeyBody(BaseModel):
@@ -272,7 +281,7 @@ def computers(wid: str, user=Depends(identity), db=Depends(database)):
 @app.post("/v1/workspaces/{wid}/computers", status_code=201)
 def create_computer(
     wid: str,
-    body: Named,
+    body: ComputerCreate,
     user=Depends(identity),
     db=Depends(database),
     idempotency_key: str = Header(min_length=8, max_length=100),
@@ -293,6 +302,8 @@ def create_computer(
         raise HTTPException(409, "Saved computer limit reached")
     c = Computer(workspace_id=wid, name=body.name.strip(), request_id=idempotency_key)
     db.add(c)
+    db.flush()
+    db.add(DesktopProfile(computer_id=c.id, cpu=body.cpu, memory_gib=body.memory_gib, resolution=body.resolution))
     db.commit()
     return public(c)
 

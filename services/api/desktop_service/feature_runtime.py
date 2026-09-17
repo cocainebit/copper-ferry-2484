@@ -19,6 +19,12 @@ def resource_for(cid):
         return {"cpu": str(profile.cpu if profile else 2), "memory": f"{profile.memory_gib if profile else 4}Gi"}
 
 
+def resolution_for(cid):
+    with database_models.Session() as db:
+        profile = db.get(DesktopProfile, cid)
+        return profile.resolution if profile else "1440x900"
+
+
 async def materialize(source_snapshot, source_id=None, target_id=None):
     """Copy a stopped system and optionally its home to independent storage."""
     volumes = []

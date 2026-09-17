@@ -15,8 +15,9 @@ from sqlalchemy import func, select, text
 from . import features, runtime
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
+from .display import dimensions
 from .entitlements import balance, charge
-from .feature_models import FeatureJob
+from .feature_models import DesktopProfile, FeatureJob
 from .security import seal, unseal
 
 log = logging.getLogger("desktop-worker")
@@ -138,6 +139,10 @@ async def agent(rid, lease):
                     r.approval = None
                 api_key = unseal(cred.encrypted_key)
                 sid = c.sandbox_id
+                profile = db.get(DesktopProfile, c.id)
+                width, height = dimensions(profile.resolution if profile else "1440x900")
+                agent_tools = [dict(tool) for tool in TOOLS]
+                agent_tools[0].update(display_width_px=width, display_height_px=height)
                 r.messages = messages
                 db.commit()
             client = anthropic.AsyncAnthropic(api_key=api_key, timeout=90, max_retries=1)
@@ -146,7 +151,7 @@ async def agent(rid, lease):
                     model=settings().anthropic_model,
                     max_tokens=4096,
                     system=SYSTEM,
-                    tools=TOOLS,
+                    tools=agent_tools,
                     messages=messages,
                     betas=["computer-use-2025-11-24"],
                 )

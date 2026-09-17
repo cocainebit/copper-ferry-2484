@@ -8,8 +8,9 @@ from desktop_service import runtime
 
 
 @pytest.mark.asyncio
-async def test_recover_created_sandbox_without_allocating_twice(monkeypatch):
+async def test_recover_created_sandbox_without_allocating_twice(monkeypatch, db):
     monkeypatch.setattr(runtime, "wait_ready", AsyncMock())
+    monkeypatch.setattr(runtime, "verify_display", AsyncMock())
     manager = SimpleNamespace(
         list_sandbox_infos=AsyncMock(return_value=SimpleNamespace(sandbox_infos=[SimpleNamespace(id="recovered")])),
         close=AsyncMock(),
@@ -23,8 +24,9 @@ async def test_recover_created_sandbox_without_allocating_twice(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_persistent_volume_creation_and_password(monkeypatch,db):
+async def test_persistent_volume_creation_and_password(monkeypatch, db):
     monkeypatch.setattr(runtime, "wait_ready", AsyncMock())
+    monkeypatch.setattr(runtime, "verify_display", AsyncMock())
     manager = SimpleNamespace(
         list_sandbox_infos=AsyncMock(return_value=SimpleNamespace(sandbox_infos=[])), close=AsyncMock()
     )
@@ -119,3 +121,29 @@ async def test_snapshot_waits_for_ready(monkeypatch):
     monkeypatch.setattr(runtime.asyncio, "sleep", AsyncMock())
     assert await runtime.save_system("sandbox") == "snap"
     manager.get_snapshot.assert_awaited_once_with("snap")
+
+
+@pytest.mark.asyncio
+async def test_display_verification_rejects_stale_snapshot(monkeypatch):
+    execute = AsyncMock(return_value="1440 900")
+    monkeypatch.setattr(runtime, "execute", execute)
+    await runtime.verify_display("sandbox", "1440x900")
+    with pytest.raises(RuntimeError, match="selected display resolution"):
+        await runtime.verify_display("sandbox", "1920x1080")
+
+
+def test_legacy_snapshot_startup_migration_is_narrow(tmp_path):
+    import shlex
+    from pathlib import Path
+
+    script = tmp_path / "start.sh"
+    script.write_text("custom setup\nXvfb :0 -screen 0 1440x900x24 -nolisten tcp &\ncustom finish\n")
+    entry = runtime.desktop_entrypoint("1920x1080", True)
+    migration = shlex.split(entry[2])[2]
+    migration = migration.replace("/opt/desktop/start.sh", str(script))
+    exec(migration, {"Path": Path})
+    assert "${DESKTOP_RESOLUTION:-1440x900}x24" in script.read_text()
+    assert script.read_text().startswith("custom setup\n")
+    first = script.read_text()
+    exec(migration, {"Path": Path})
+    assert script.read_text() == first

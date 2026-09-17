@@ -1,5 +1,9 @@
 # Customizing your desktop
 
+## Configure a new computer
+
+The Create computer dialog lets you choose a name, 1 or 2 CPU cores, and 2 or 4 GiB RAM. Choose a clean Linux environment or, as a workspace owner, a ready private system template. Templates prefill their saved resource allocation; you can change it before creating. Resource choices are saved with the computer. Template-based computers become available after copying completes; start them when ready.
+
 ## What persists
 
 | Customization                               | How to change it                                                      | Persistence                                       |
@@ -23,7 +27,7 @@ The dashboard terminal has administrator privileges inside your computer. The gr
 
 ## Resources
 
-Workspace owners can select **1 or 2 CPU cores** and **2 or 4 GiB RAM**. Defaults are 2 CPU / 4 GiB. Stop the desktop first; the worker passes the saved allocation to OpenSandbox on the next start. Larger allocations and storage resizing are not available yet. The display remains fixed at 1440×900.
+Workspace owners can select **1 or 2 CPU cores** and **2 or 4 GiB RAM**. Defaults are 2 CPU / 4 GiB. Stop the desktop first; the worker passes the saved allocation to OpenSandbox on the next start. Larger allocations and storage resizing are not available yet. Choose **1280×720, 1440×900 (default), or 1920×1080** during creation or in stopped-computer settings. Changes apply next start. Clones/templates inherit resolution; template consumers can override it. Agent coordinates match the selected dimensions. Legacy platform startup scripts are upgraded narrowly; custom scripts must honor `DESKTOP_RESOLUTION` or startup fails the geometry check.
 
 ## Clone a complete desktop
 

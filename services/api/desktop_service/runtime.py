@@ -12,6 +12,7 @@ from opensandbox.models.execd import RunCommandOpts
 from opensandbox.models.sandboxes import PVC, SandboxFilter, Volume
 
 from .config import settings
+from .display import dimensions
 
 
 def connection():
@@ -26,8 +27,10 @@ def connection():
 
 
 async def create(cid, password, snapshot_id=None):
-    from .feature_runtime import resource_for
+    from .feature_runtime import resolution_for, resource_for
 
+    resolution = resolution_for(cid)
+    dimensions(resolution)
     manager = await SandboxManager.create(connection_config=connection())
     try:
         existing = await manager.list_sandbox_infos(
@@ -37,6 +40,7 @@ async def create(cid, password, snapshot_id=None):
             raise RuntimeError("Multiple desktops found; operator reconciliation required")
         if existing.sandbox_infos:
             await wait_ready(existing.sandbox_infos[0].id)
+            await verify_display(existing.sandbox_infos[0].id, resolution)
             return existing.sandbox_infos[0].id
     finally:
         await manager.close()
@@ -47,8 +51,12 @@ async def create(cid, password, snapshot_id=None):
         ready_timeout=timedelta(seconds=120),
         resource=resource_for(cid),
         metadata={"agent-desktop-id": cid},
-        env={"VNC_PASSWORD": password, "CHROMIUM_DEV_FLAGS": "--no-sandbox" if settings().dev_mode else ""},
-        entrypoint=["/opt/desktop/start.sh"],
+        env={
+            "DESKTOP_RESOLUTION": resolution,
+            "VNC_PASSWORD": password,
+            "CHROMIUM_DEV_FLAGS": "--no-sandbox" if settings().dev_mode else "",
+        },
+        entrypoint=desktop_entrypoint(resolution, bool(snapshot_id)),
         volumes=[
             Volume(
                 name="home", pvc=PVC(claim_name="desktop-" + cid, create_if_not_exists=True), mount_path="/home/desktop"
@@ -57,7 +65,31 @@ async def create(cid, password, snapshot_id=None):
     )
     await sb.close()
     await wait_ready(sb.id)
+    await verify_display(sb.id, resolution)
     return sb.id
+
+
+def desktop_entrypoint(resolution, from_snapshot=False):
+    dimensions(resolution)
+    if not from_snapshot:
+        return ["/opt/desktop/start.sh"]
+    # Upgrade only the exact platform-owned legacy Xvfb line in saved images.
+    # Leave user-modified scripts untouched; verify actual geometry after boot.
+    migration = (
+        "from pathlib import Path; "
+        "p=Path('/opt/desktop/start.sh'); s=p.read_text(); "
+        "old='Xvfb :0 -screen 0 1440x900x24 -nolisten tcp &'; "
+        "new='Xvfb :0 -screen 0 \"${DESKTOP_RESOLUTION:-1440x900}x24\" -nolisten tcp &'; "
+        "p.write_text(s.replace(old,new)) if old in s else None"
+    )
+    return ["/bin/sh", "-c", "python3 -c " + shlex.quote(migration) + " && exec /opt/desktop/start.sh"]
+
+
+async def verify_display(sid, resolution):
+    width, height = dimensions(resolution)
+    actual = await execute(sid, "DISPLAY=:0 xdotool getdisplaygeometry")
+    if actual.strip() != f"{width} {height}":
+        raise RuntimeError("Desktop startup script did not apply the selected display resolution")
 
 
 async def connect(sid):

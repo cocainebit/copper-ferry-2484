@@ -13,7 +13,12 @@ fi
 mkdir -p "$HOME/.config" "$HOME/Desktop" "$HOME/Downloads"
 # A persistent profile can contain stale singleton locks after a crash.
 find "$HOME/.config/chromium" -maxdepth 1 -name 'Singleton*' -type l -delete 2>/dev/null || true
-Xvfb :0 -screen 0 1440x900x24 -nolisten tcp &
+DESKTOP_RESOLUTION=${DESKTOP_RESOLUTION:-1440x900}
+case "$DESKTOP_RESOLUTION" in
+    1280x720|1440x900|1920x1080) ;;
+    *) echo "Unsupported desktop resolution" >&2; exit 1 ;;
+esac
+Xvfb :0 -screen 0 "${DESKTOP_RESOLUTION}x24" -nolisten tcp &
 sleep 1
 startxfce4 > /tmp/xfce.log 2>&1 &
 sleep 2

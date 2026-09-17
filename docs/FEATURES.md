@@ -26,7 +26,8 @@ All routes start with `/v1` and require an authenticated session. Mutations othe
 - `POST /computers/{id}/clone`: `{ "name": "Copy" }`.
 - `POST /computers/{id}/templates`: `{ "name": "Python tools" }`.
 - `GET /workspaces/{id}/templates`: templates with lifecycle state.
-- `POST /templates/{id}/computers`: `{ "name": "New desktop" }`.
+- `POST /workspaces/{id}/computers`: `{ "name": "New desktop", "cpu": 1, "memory_gib": 2 }`; omitted resources default to 2 CPU / 4 GiB.
+- `POST /templates/{id}/computers`: `{ "name": "New desktop", "cpu": 1, "memory_gib": 2 }`; omitted resources inherit the template.
 - `DELETE /templates/{id}`: queue deletion.
 - `GET /workspaces/{id}/feature-jobs`: operation status and any user-safe error.
 

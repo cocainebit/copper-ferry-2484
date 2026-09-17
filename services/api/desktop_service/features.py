@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from . import db as models
 from . import feature_runtime, runtime
 from .db import Computer, Run, Workspace, database, event, now
+from .display import RESOLUTIONS, Resolution
 from .entitlements import balance
 from .feature_models import DesktopProfile, DesktopTemplate, FeatureJob
 from .platform_credits import paid_access
@@ -23,10 +24,17 @@ log = logging.getLogger(__name__)
 class ProfileBody(BaseModel):
     cpu: Literal[1, 2] = 2
     memory_gib: Literal[2, 4] = 4
+    resolution: Resolution | None = None
 
 
 class Named(BaseModel):
     name: str = Field(min_length=1, max_length=80, pattern=r"\S")
+
+
+class TemplateCreate(Named):
+    cpu: Literal[1, 2] | None = None
+    memory_gib: Literal[2, 4] | None = None
+    resolution: Resolution | None = None
 
 
 def owned_computer(db, cid, user):
@@ -56,6 +64,7 @@ def template_public(t):
         "status": t.status,
         "cpu": t.cpu,
         "memory_gib": t.memory_gib,
+        "resolution": t.resolution,
         "includes_home": False,
     }
 
@@ -89,7 +98,8 @@ def profile(cid: str, user=Depends(identity), db=Depends(database)):
     return {
         "cpu": p.cpu if p else 2,
         "memory_gib": p.memory_gib if p else 4,
-        "options": {"cpu": [1, 2], "memory_gib": [2, 4]},
+        "resolution": p.resolution if p else "1440x900",
+        "options": {"cpu": [1, 2], "memory_gib": [2, 4], "resolution": RESOLUTIONS},
         "storage_quota_enforced": False,
     }
 
@@ -100,10 +110,11 @@ def update_profile(cid: str, body: ProfileBody, user=Depends(identity), db=Depen
     stopped(db, c)
     p = db.get(DesktopProfile, cid) or DesktopProfile(computer_id=cid)
     p.cpu, p.memory_gib = body.cpu, body.memory_gib
+    p.resolution = body.resolution or p.resolution or "1440x900"
     db.add(p)
     event(db, cid, f"Resources set to {p.cpu} CPU and {p.memory_gib} GiB RAM for the next start")
     db.commit()
-    return {"cpu": p.cpu, "memory_gib": p.memory_gib}
+    return {"cpu": p.cpu, "memory_gib": p.memory_gib, "resolution": p.resolution}
 
 
 @router.get("/workspaces/{wid}/templates")
@@ -145,7 +156,14 @@ def clone(
         raise HTTPException(409, "Start and stop this computer once to save its system before cloning")
     target = reserve_computer(db, c.workspace_id, body.name, idempotency_key)
     p = db.get(DesktopProfile, cid)
-    db.add(DesktopProfile(computer_id=target.id, cpu=p.cpu if p else 2, memory_gib=p.memory_gib if p else 4))
+    db.add(
+        DesktopProfile(
+            computer_id=target.id,
+            cpu=p.cpu if p else 2,
+            memory_gib=p.memory_gib if p else 4,
+            resolution=p.resolution if p else "1440x900",
+        )
+    )
     c.status = "customizing"
     j = FeatureJob(
         workspace_id=c.workspace_id, request_id=idempotency_key, kind="clone", source_id=cid, target_id=target.id
@@ -181,7 +199,11 @@ def save_template(
         raise HTTPException(409, "Workspace template limit reached")
     p = db.get(DesktopProfile, cid)
     t = DesktopTemplate(
-        workspace_id=c.workspace_id, name=body.name.strip(), cpu=p.cpu if p else 2, memory_gib=p.memory_gib if p else 4
+        workspace_id=c.workspace_id,
+        name=body.name.strip(),
+        cpu=p.cpu if p else 2,
+        memory_gib=p.memory_gib if p else 4,
+        resolution=p.resolution if p else "1440x900",
     )
     db.add(t)
     db.flush()
@@ -197,7 +219,7 @@ def save_template(
 @router.post("/templates/{tid}/computers", status_code=202)
 def from_template(
     tid: str,
-    body: Named,
+    body: TemplateCreate,
     user=Depends(identity),
     db=Depends(database),
     idempotency_key: str = Header(min_length=8, max_length=100),
@@ -213,7 +235,14 @@ def from_template(
     if t.status != "ready":
         raise HTTPException(409, "Template is not ready")
     target = reserve_computer(db, t.workspace_id, body.name, idempotency_key)
-    db.add(DesktopProfile(computer_id=target.id, cpu=t.cpu, memory_gib=t.memory_gib))
+    db.add(
+        DesktopProfile(
+            computer_id=target.id,
+            cpu=body.cpu or t.cpu,
+            memory_gib=body.memory_gib or t.memory_gib,
+            resolution=body.resolution or t.resolution,
+        )
+    )
     j = FeatureJob(
         workspace_id=t.workspace_id,
         request_id=idempotency_key,

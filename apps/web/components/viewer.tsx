@@ -89,11 +89,17 @@ export function Viewer({
             <h2>
               {computer.status === "starting"
                 ? "Making room for your ideas…"
-                : "Your computer is taking a breather."}
+                : computer.status === "copying"
+                  ? "Preparing your template…"
+                  : computer.status === "copy_failed"
+                    ? "Your computer could not be copied."
+                    : "Your computer is taking a breather."}
             </h2>
             <p>
               {computer.error ||
-                "Your files and browser profile will be here when you return."}
+                (computer.status === "copying"
+                  ? "Your environment is being copied. Start the computer once it is ready."
+                  : "Your files and browser profile will be here when you return.")}
             </p>
             {["stopped", "failed"].includes(computer.status) && (
               <Button onClick={onStart}>Start computer</Button>
