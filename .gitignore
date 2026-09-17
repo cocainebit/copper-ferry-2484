@@ -19,3 +19,8 @@ supabase/.temp/
 supabase/.branches/
 
 .next-dev/
+
+infra/crypto-test/out/
+infra/crypto-test/cache/
+
+.next-crypto/

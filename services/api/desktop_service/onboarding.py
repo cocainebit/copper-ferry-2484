@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from .config import settings
 from .db import Credential, database
 from .security import identity, member
+from .x402_rail import configuration_status
 
 router = APIRouter()
 
@@ -25,11 +26,10 @@ def setup(wid: str, user=Depends(identity), db=Depends(database)):
             "action": "Configure Supabase and its Google, GitHub, and email providers.",
         },
         "billing": {
-            "configured": bool(
-                s.stripe_secret_key and s.stripe_webhook_secret and s.stripe_subscription_price and s.stripe_topup_price
-            ),
-            "checkout_enabled": s.launch_enabled,
-            "action": "Configure Stripe prices and signed webhooks, then complete test checkout.",
+            "configured": configuration_status()["enabled"],
+            "checkout_enabled": configuration_status()["enabled"],
+            "provider": "x402",
+            "action": "Configure x402, USDC and your receiving wallet; complete a test payment.",
         },
         "database": {"provider": "sqlite" if s.database_url.startswith("sqlite") else "postgresql"},
         "note": "Configured services still require an end-to-end integration test before public launch.",

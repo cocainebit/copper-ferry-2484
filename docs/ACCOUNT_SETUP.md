@@ -1,6 +1,6 @@
 # Accounts, AI provider, and billing setup
 
-The app supports Supabase user sessions, email codes, Google/GitHub sign-in, workspace invitations, owner-managed Anthropic keys, and Stripe Checkout/Portal. Local development credentials are a convenience for one developer; disable both development flags before a public deployment.
+Cubicle supports Supabase user sessions, email codes, Google/GitHub sign-in, workspace invitations, owner-managed Anthropic keys, and prepaid USDC payments through x402. Local development credentials are a convenience for one developer; disable both development flags before a public deployment.
 
 ## Local authentication without a cloud account
 
@@ -50,28 +50,17 @@ Verification checklist:
 
 An owner adds a key under Settings. The API checks it against Anthropic's models endpoint before saving encrypted credentials. Keys never appear in readiness output; the worker decrypts them only server-side. An accepted key does not prove sufficient provider credits, model access, or successful computer use. Test a harmless real task on a running desktop, pause it, take control, resume, and test an approval before marking the agent integration verified.
 
-## Stripe
+## Crypto billing and shared service accounts
 
-Create two test-mode prices matching the published plans:
+The selected payment flow is prepaid USDC through x402. Stripe account setup is not required for this flow. Its older backend integration remains for compatibility; Cubicle's billing UI now uses crypto invoices and the shared workspace balance.
 
-| Environment variable | Price |
-| --- | --- |
-| `STRIPE_SUBSCRIPTION_PRICE` | USD 29.00, recurring every month |
-| `STRIPE_TOPUP_PRICE` | USD 10.00, one-time |
+Payments are disabled by default. The default development network is Base Sepolia with test USDC. Configure and validate the rail using [crypto operations](CRYPTO_OPERATIONS.md); do not ask customers to send funds until a real test transaction and reconciliation exercise pass. The actual production treasury, network, pricing and refund procedures remain deployment inputs.
 
-Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Configure the Billing Portal for cancellation and payment-method changes. Disable plan switching to unrelated products. Enable `LAUNCH_ENABLED` only after capacity and deployment checks pass.
+Workspace owners create and authorize invoices. Members can inspect balance and payment history. Wallet signing does not replace Supabase authentication, and a payment wallet does not automatically become an account owner. The supported wallet flow uses EOA EIP-3009 signatures and the server's `extra.invoiceNonce`; use the [shared billing client](../packages/platform-billing/README.md) for other first-party websites.
 
-Forward Stripe test webhooks to `/api/v1/billing/webhook` on the web origin (or `/v1/billing/webhook` directly on the API). Subscribe to:
+The main platform and Cubicle can share identity and the same workspace balance. Additional services register a price and a separate backend credential, then debit usage through the private central API. Never expose service credentials in browser code. See [payment integration](CRYPTO_PAYMENTS.md) for the routes and account boundaries.
 
-- `invoice.paid`
-- `checkout.session.completed`
-- `checkout.session.async_payment_succeeded`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-
-Checkout requires an `Idempotency-Key` header and validates the configured price against the published amount/currency/recurrence. Webhooks use Stripe signature verification, customer binding, transactional grants, event deduplication, and invoice/session-level credit deduplication. Top-ups must match the configured price, quantity, amount, currency, and workspace metadata. Subscription status is fetched from Stripe to avoid stale cancellation events. A successful browser redirect never grants credits.
-
-Test with Stripe test-mode credentials: initial subscription, renewal, failed payment, cancellation, duplicate/out-of-order webhooks, immediate top-up, and delayed-payment top-up. Check that each paid invoice grants 100 hours once and each top-up grants 50 hours once. Refunds/disputes still require an operational review and manual entitlement correction; automated refund policy is not implemented. No Stripe integration has been tested against a live account in this environment.
+Token-holder trials remain a separate service-specific entitlement. Their original `agent-desktop` service ID is retained for compatibility, and their token adapter still needs the real platform token/network configuration.
 
 ## Readiness
 

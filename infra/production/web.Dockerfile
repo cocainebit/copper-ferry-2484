@@ -3,12 +3,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/platform-trials/package.json ./packages/platform-trials/package.json
+COPY packages/platform-billing/package.json ./packages/platform-billing/package.json
 RUN npm ci
 COPY apps/web/app ./apps/web/app
 COPY apps/web/components ./apps/web/components
 COPY apps/web/lib ./apps/web/lib
 COPY apps/web/next.config.ts apps/web/next-env.d.ts apps/web/tsconfig.json apps/web/novnc.d.ts apps/web/postcss.config.mjs ./apps/web/
 COPY packages/platform-trials/src.ts ./packages/platform-trials/src.ts
+COPY packages/platform-billing/src.ts ./packages/platform-billing/src.ts
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_DEV_MODE=false API_INTERNAL_URL=http://api:8000 NEXT_TELEMETRY_DISABLED=1

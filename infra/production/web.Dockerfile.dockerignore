@@ -19,3 +19,7 @@
 !packages/platform-trials
 !packages/platform-trials/package.json
 !packages/platform-trials/src.ts
+
+!packages/platform-billing/
+!packages/platform-billing/package.json
+!packages/platform-billing/src.ts

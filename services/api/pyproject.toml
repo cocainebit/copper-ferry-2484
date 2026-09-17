@@ -2,7 +2,21 @@
 name = "agent-desktop-api"
 version = "0.1.0"
 requires-python = ">=3.11,<3.14"
-dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.34", "sqlalchemy>=2.0", "psycopg[binary]>=3.2", "pydantic-settings>=2.7", "httpx>=0.28", "PyJWT[crypto]>=2.10", "cryptography>=44", "stripe>=12", "anthropic>=0.49", "opensandbox", "websockets>=15"]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.7",
+    "httpx>=0.28",
+    "PyJWT[crypto]>=2.10",
+    "cryptography>=44",
+    "stripe>=12",
+    "anthropic>=0.49",
+    "opensandbox",
+    "websockets>=15",
+    "x402[evm]==2.8.0",
+]
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.11"]
 [tool.uv.sources]
@@ -15,3 +29,6 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["desktop_service"]

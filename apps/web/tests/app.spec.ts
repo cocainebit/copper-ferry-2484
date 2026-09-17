@@ -74,10 +74,12 @@ test("real API workspace, creation, settings, and billing", async ({
   await expect(
     page.getByRole("heading", { name: "A little room to grow." }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Manage subscription" }).click();
-  await expect(page.locator(".error-banner")).toContainText(
-    "Checkout is not open yet",
-  );
+  await expect(
+    page.getByRole("button", { name: "Create payment invoice" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Payment history", { exact: true }),
+  ).toBeVisible();
 });
 
 test("unconfigured trial never requests payment", async ({ page }) => {

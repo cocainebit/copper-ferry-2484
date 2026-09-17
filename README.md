@@ -1,8 +1,8 @@
-# Agent Desktop
+# Cubicle
 
-A cloud-computer service for AI agents, with a live desktop viewer and a reusable token-holder trial service for a broader platform.
+Cubicle is the cloud-computer service for AI agents in the broader platform, with a live desktop viewer and a reusable token-holder trial service. The product name was confirmed by the owner on September 16, 2026; the broader platform name is still undecided.
 
-**Status:** the local platform runs real Linux desktops with persistent home/system customization and PostgreSQL. A local Supabase stack supports tested email-code authentication. Resource controls, independent clones and private system templates are implemented; use the real integration checks below to verify the deployed runtime. Public checkout remains disabled. Anthropic, hosted OAuth/mail, Stripe and the actual platform token still need configuration and end-to-end validation; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
+**Status:** the local platform runs real Linux desktops with persistent home/system customization and PostgreSQL. A local Supabase stack supports tested email-code authentication. Resource controls, independent clones and private system templates are implemented; use the real integration checks below to verify the deployed runtime. Prepaid USDC/x402 invoices and a shared workspace balance are implemented, but real payments remain disabled until the rail is configured and validated. Anthropic, hosted OAuth/mail, the production payment rail and the actual platform token still need configuration and end-to-end validation; read [ROADBLOCKS.md](ROADBLOCKS.md) before deployment.
 
 ## What is here
 
@@ -12,7 +12,7 @@ A cloud-computer service for AI agents, with a live desktop viewer and a reusabl
 - OpenSandbox adapter with persistent home volumes, crash recovery by computer metadata, stop/restart, expiration renewal and deletion cleanup.
 - Owner-controlled CPU/RAM profiles, durable full-desktop cloning, private system templates and independent computers created from templates.
 - PostgreSQL storage, advisory-lock scheduling, concurrent credit metering checks, readiness endpoints and private Prometheus metrics.
-- Stripe subscription/top-up checkout, portal, signature-checked webhooks and idempotent minute metering.
+- USDC/x402 v2 invoice checkout, EOA wallet authorization, independent settlement checks, durable reconciliation and a shared workspace ledger with idempotent per-service usage debits. The existing Stripe backend is retained for compatibility, but the product payment flow is crypto.
 - Seven-day, service-scoped trials with wallet ownership challenges, exact-token verification, finalized historical holdings checks and replay protection. An EVM adapter is included; token/network/treasury configuration remains disabled until the actual platform token is known and chain tests pass.
 
 ## Repository layout
@@ -20,7 +20,8 @@ A cloud-computer service for AI agents, with a live desktop viewer and a reusabl
 ```text
 apps/web/                   Next.js frontend
 services/api/               FastAPI, database, billing, agent worker and tests
-packages/platform-trials/   Shared TypeScript client for the main website
+packages/platform-trials/   Shared token-trial TypeScript client
+packages/platform-billing/  Shared x402 invoice and wallet-signing client
 infra/desktop/              Linux desktop image, visible Chromium and VNC
 infra/Caddyfile             Local same-origin HTTPS and WebSocket proxy
 infra/production/          Dedicated-Linux/gVisor deployment scaffold
@@ -110,7 +111,7 @@ The Postgres check creates and removes a unique temporary schema. It has passed 
 
 Use `.env.example`, [architecture](docs/ARCHITECTURE.md), [deployment checklist](docs/DEPLOYMENT.md), [production runtime scaffold](docs/PRODUCTION_RUNTIME.md), and [trial integration contract](docs/TRIAL_INTEGRATION.md). Run one scheduler, separate API/web services, a private OpenSandbox host and Postgres. Keep `LAUNCH_ENABLED=false` until the outstanding integration and infrastructure checks pass.
 
-The broader website can share the same Supabase identity and use `@platform/trials`. A single transfer buys one service trial; adding another service does not automatically grant access to it. Native wallet connection requires the selected chain's wallet adapter. No real token transfers have been requested or performed.
+The broader website can share the same Supabase identity and workspace, and use `@platform/billing` for prepaid USDC invoices and `@platform/trials` for separate trial entitlements. Additional services register central prices and private service credentials to charge the shared balance. See [crypto payment integration](docs/CRYPTO_PAYMENTS.md) and [crypto operations](docs/CRYPTO_OPERATIONS.md). The default payment network is Base Sepolia testnet, disabled until configured; the production network and treasury are not yet selected. Our invoice flow requires the `extra.invoiceNonce` extension supported by the shared client and currently accepts EOA EIP-3009 wallets only. A single transfer buys one service trial; adding another service does not automatically grant access to it. Native wallet connection requires the selected chain's wallet adapter. No real token transfers have been requested or performed.
 
 ## Operations
 

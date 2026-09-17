@@ -16,3 +16,13 @@ groups:
         for: 5m
         annotations:
           summary: At least one desktop failed to provision
+      - alert: PaymentWorkerMissing
+        expr: (platform_payment_worker_heartbeat_age_seconds > 30 or platform_payment_worker_heartbeat_age_seconds < 0) and on(instance) (platform_payments_enabled == 1)
+        for: 1m
+        annotations:
+          summary: Payment reconciliation worker is stale or absent
+      - alert: PaymentNeedsReconciliation
+        expr: platform_oldest_pending_payment_age_seconds > 600
+        for: 2m
+        annotations:
+          summary: A crypto payment has been pending for more than ten minutes

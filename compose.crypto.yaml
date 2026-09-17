@@ -1,0 +1,9 @@
+# Isolated local test network. Never send real assets to Anvil accounts.
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:v1.3.1@sha256:2dbf3d0fc58593ad9d01ef57677f93f83f4987acd295d17f303448d82e3a3ae7
+    entrypoint: ["anvil", "--host", "0.0.0.0", "--chain-id", "31337", "--silent"]
+    ports: ["127.0.0.1:8547:8545"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

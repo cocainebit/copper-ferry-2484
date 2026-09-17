@@ -6,15 +6,17 @@ Restore extracts into a NEW directory; it never overwrites the running service.
 import argparse
 import json
 import os
-from pathlib import Path
 import secrets
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from uuid import uuid4
+
 from sqlalchemy import select, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services/api"))
+from desktop_service import crypto_models, payment_models  # noqa: F401
 from desktop_service.db import Base, Computer, ServiceHeartbeat, engine, now
 from desktop_service.feature_models import DesktopTemplate
 
@@ -27,9 +29,7 @@ RESTIC = "restic/restic:0.18.0"
 
 def docker(*args, stdout=None):
     try:
-        return subprocess.run(
-            ["docker", *args], check=True, stdout=stdout, stderr=subprocess.PIPE
-        )
+        return subprocess.run(["docker", *args], check=True, stdout=stdout, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(exc.stderr.decode(errors="replace")) from None
 
@@ -73,35 +73,24 @@ def backup():
     initialize()
     with engine.begin() as connection:
         # Same lock as the scheduler. Never back up mutable desktop files.
-        if not connection.execute(
-            text("SELECT pg_try_advisory_xact_lock(8118026)")
-        ).scalar():
+        if not connection.execute(text("SELECT pg_try_advisory_xact_lock(8118026)")).scalar():
             raise RuntimeError("Stop the worker before taking a backup")
-        tables = ",".join(
-            '"' + table.name + '"' for table in Base.metadata.sorted_tables
-        )
+        tables = ",".join('"' + table.name + '"' for table in Base.metadata.sorted_tables)
         connection.execute(text("LOCK TABLE " + tables + " IN SHARE MODE"))
         heartbeat = connection.execute(
-            select(ServiceHeartbeat.updated_at).where(
-                ServiceHeartbeat.id == "desktop-worker"
-            )
+            select(ServiceHeartbeat.updated_at).where(ServiceHeartbeat.id == "desktop-worker")
         ).scalar()
         if heartbeat and (now() - heartbeat).total_seconds() < 30:
             raise RuntimeError("Wait 30 seconds after stopping the worker")
-        rows = (
-            connection.execute(select(Computer).where(Computer.status != "deleted"))
-            .mappings()
-            .all()
-        )
-        if any(
-            row["status"] not in ("stopped", "failed", "copy_failed") for row in rows
-        ):
-            raise RuntimeError(
-                "Stop all desktops and finish feature jobs before backup"
-            )
-        with tempfile.TemporaryDirectory(
-            prefix="backup-stage-", dir=LOCAL
-        ) as directory:
+        payment_heartbeat = connection.execute(
+            select(ServiceHeartbeat.updated_at).where(ServiceHeartbeat.id == "payment-worker")
+        ).scalar()
+        if payment_heartbeat and (now() - payment_heartbeat).total_seconds() < 30:
+            raise RuntimeError("Stop the payment worker and wait 30 seconds before backup")
+        rows = connection.execute(select(Computer).where(Computer.status != "deleted")).mappings().all()
+        if any(row["status"] not in ("stopped", "failed", "copy_failed") for row in rows):
+            raise RuntimeError("Stop all desktops and finish feature jobs before backup")
+        with tempfile.TemporaryDirectory(prefix="backup-stage-", dir=LOCAL) as directory:
             stage = Path(directory)
             with (stage / "database.dump").open("wb") as output:
                 docker(
@@ -141,9 +130,7 @@ def backup():
                 "created_at": now().isoformat() + "Z",
                 "computers": [],
                 "table_counts": {
-                    table.name: connection.execute(
-                        text(f'SELECT count(*) FROM "{table.name}"')
-                    ).scalar()
+                    table.name: connection.execute(text(f'SELECT count(*) FROM "{table.name}"')).scalar()
                     for table in Base.metadata.sorted_tables
                 },
             }
@@ -153,6 +140,7 @@ def backup():
                 exists = (
                     subprocess.run(
                         ["docker", "volume", "inspect", volume],
+                        check=False,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     ).returncode
@@ -258,9 +246,7 @@ def backup():
                 docker("rm", "-f", container, stdout=subprocess.DEVNULL)
                 docker("volume", "rm", volume, stdout=subprocess.DEVNULL)
     restic("check")
-    print(
-        "Encrypted backup completed and repository integrity checked. Preserve .local/backup-password separately."
-    )
+    print("Encrypted backup completed and repository integrity checked. Preserve .local/backup-password separately.")
 
 
 def restore(destination):
@@ -285,22 +271,12 @@ def restore(destination):
         raise RuntimeError("Unsupported backup version")
     required = ["database.dump", "opensandbox.db"]
     for item in manifest["computers"] + manifest.get("templates", []):
-        required.extend(
-            item[key] for key in ("home_archive", "system_archive") if item.get(key)
-        )
+        required.extend(item[key] for key in ("home_archive", "system_archive") if item.get(key))
     for filename in required:
         archive = source / filename
-        if (
-            archive.parent != source
-            or not archive.is_file()
-            or not archive.stat().st_size
-        ):
-            raise RuntimeError(
-                "Backup is incomplete or contains an invalid archive path"
-            )
-    print(
-        "Backup extracted to a new directory. Follow docs/BACKUPS.md to restore into fresh infrastructure."
-    )
+        if archive.parent != source or not archive.is_file() or not archive.stat().st_size:
+            raise RuntimeError("Backup is incomplete or contains an invalid archive path")
+    print("Backup extracted to a new directory. Follow docs/BACKUPS.md to restore into fresh infrastructure.")
 
 
 if __name__ == "__main__":

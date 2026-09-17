@@ -17,7 +17,7 @@ export default function Home() {
       <nav className="landing-nav">
         <Link href="/" className="brand">
           <Mark />
-          agent desktop<span className="tag">EARLY ACCESS</span>
+          cubicle<span className="tag">EARLY ACCESS</span>
         </Link>
         <div className="nav-links">
           <a href="#how">How it works</a>
@@ -183,13 +183,13 @@ export default function Home() {
           </Link>
         </div>
         <article className="price-card">
-          <span className="tiny-label">STARTER</span>
+          <span className="tiny-label">PREPAID</span>
           <h3>
-            $29<span>/ month</span>
+            USDC<span> / pay as you go</span>
           </h3>
           <p>For independent builders and small teams.</p>
           <ul>
-            <li>100 computer-hours each month</li>
+            <li>Shared platform usage credits</li>
             <li>1 running computer · 2 saved computers</li>
             <li>Up to 3 workspace members</li>
             <li>Persistent files and browser profile</li>
@@ -198,13 +198,13 @@ export default function Home() {
           <Link className="button primary" href="/login">
             Get started <ArrowRight size={16} />
           </Link>
-          <small>Need more time? $10 adds 50 hours.</small>
+          <small>See current usage rates in your workspace.</small>
         </article>
       </section>
       <footer>
         <span className="brand">
           <Mark size={20} />
-          agent desktop
+          cubicle
         </span>
         <span>A little space for your next big thing.</span>
         <Link href="/login">

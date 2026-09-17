@@ -1,0 +1,39 @@
+# Optional private facilitator. Start only after selecting/reviewing payment setup.
+# docker compose -f compose.x402.yaml up -d --build
+# Set API X402_FACILITATOR_URL=http://facilitator:8402 on the same control network.
+name: cubicle-payments
+services:
+  facilitator:
+    image: cubicle-facilitator:local
+    build:
+      context: .
+      dockerfile: infra/production/facilitator.Dockerfile
+    environment:
+      DEV_MODE: "false"
+      X402_ENABLED: "true"
+      X402_NETWORK: ${X402_NETWORK:-eip155:84532}
+      X402_ASSET: ${X402_ASSET:?Set the reviewed canonical USDC address}
+      X402_PAY_TO: ${X402_PAY_TO:?Set your treasury address}
+      X402_RPC_URL: ${X402_RPC_URL:?Set your trusted RPC URL}
+      X402_FACILITATOR_URL: http://facilitator:8402
+      X402_FACILITATOR_TOKEN: ${X402_FACILITATOR_TOKEN:?Set a private bearer token of at least 32 characters}
+      X402_FACILITATOR_PRIVATE_KEY_FILE: /run/secrets/facilitator-gas-key
+      X402_TOKEN_NAME: ${X402_TOKEN_NAME:-USDC}
+      X402_TOKEN_VERSION: "2"
+      X402_CONFIRMATIONS: ${X402_CONFIRMATIONS:-3}
+      X402_MAX_TIMEOUT_SECONDS: ${X402_MAX_TIMEOUT_SECONDS:-300}
+    secrets: [facilitator-gas-key]
+    networks: [control]
+    # No host ports: reachable only by API/worker containers on the control network.
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+secrets:
+  facilitator-gas-key:
+    file: ${X402_FACILITATOR_KEY_FILE:?Absolute path to facilitator-only gas signer key file}
+networks:
+  control:
+    external: true
+    name: agent-desktop-control

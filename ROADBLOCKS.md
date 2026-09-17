@@ -1,6 +1,6 @@
 # Roadblocks and deployment requirements
 
-Updated September 16, 2026. This records review items without interrupting implementation.
+Updated September 17, 2026. This records review items without interrupting implementation.
 
 ## Implemented and verified locally
 
@@ -18,7 +18,7 @@ Updated September 16, 2026. This records review items without interrupting imple
 
 - Anthropic key: no key exists in the local workspace. The agent implementation and mocked lifecycle tests pass; a real model-driven task remains unverified.
 - Production Supabase project, Google/GitHub OAuth applications, production SMTP and redirect domains. Local email authentication works; public OAuth/email delivery has not been tested.
-- Payment direction changed to shared crypto billing across services. Stripe integration remains disabled and is no longer the default launch dependency. Crypto invoices, a shared credit ledger, a selected chain/asset and treasury configuration still need implementation; see docs/CRYPTO_PAYMENTS.md.
+- Shared crypto billing and x402 wallet checkout are implemented. Real payments remain disabled until a public receiving wallet, reviewed Base USDC configuration, reliable RPC and separately funded facilitator gas signer are supplied. No business-country/bank-account onboarding is part of the current direct-crypto implementation. Stripe is retained only as dormant legacy code. See docs/CRYPTO_OPERATIONS.md.
 - Cloud account, dedicated Linux host, production Postgres, domain/DNS/TLS and stable secret storage. Local Postgres is running; it is not a deployed managed production database.
 - Platform network, token address/mint, decimals, treasury, confirmation policy and wallet UX. If EVM is selected, the adapter requires a reviewed immutable standard-token runtime code hash and real testnet checks. Other networks require their own adapter. No user should send payment until the selected adapter and policy are tested.
 - Broader main website repository and identity/domain design. The reusable trial client/API exists; cross-subdomain SSO and main-site embedding require that integration context.
@@ -43,8 +43,21 @@ Updated September 16, 2026. This records review items without interrupting imple
 
 ## Verification summary
 
-85 backend tests, 20 optional EVM verifier tests and three isolated Playwright flows pass. Live checks cover local Supabase authentication, Postgres concurrency, desktop cloning/templates/cgroup limits, Prometheus scraping and encrypted backup restoration. Production container builds pass. These checks do not establish public production readiness or real Stripe/Anthropic/chain-provider integration.
+148 backend tests, 20 optional platform-token verifier tests and five isolated Playwright flows pass. The full real-signature browser-to-local-blockchain checkout and PostgreSQL concurrent financial checks also pass. API, frontend and self-hosted facilitator Docker images build successfully. Live checks cover local Supabase authentication, Postgres concurrency, desktop cloning/templates/cgroup limits, Prometheus scraping and encrypted backup restoration. Production container builds pass. These checks do not establish public production readiness or real Stripe/Anthropic/chain-provider integration.
 
 ## Automatic approval review restriction
 
 Automatic approval review rejected execution of the optional Anthropic provider-preflight script because it could decrypt a stored key and send it to Anthropic without destination-specific authorization. No request was sent. A real provider check remains deferred; the local workspace also has no Anthropic key configured.
+
+
+## Cubicle crypto implementation — September 17
+
+- Product name is **Cubicle**; existing `agent-desktop` trial identifiers remain for compatibility. The broader platform name and repository are still unspecified.
+- Shared integer micro-USDC ledger, server-priced cross-service debits, wallet checkout, invoices, receipts/activity history, dedicated payment worker, monitoring and reconciliation tools are implemented.
+- Real local test-chain verification passes from browser signature through official x402 facilitator settlement to independent receipt verification and exactly-once credit. A separate API smoke proves lost-response recovery, two-service charging and prepaid desktop access. Tests use fake Anvil tokens and separate disposable databases; existing user balances are untouched.
+- Initial supported payment scope: native USDC on Base/Base Sepolia, EOA EIP-3009 signatures and our invoice-nonce client extension. Solana, arbitrary payment tokens, smart-contract wallets, Permit2 and automatic renewals are not implemented. Generic x402 clients must use the invoice nonce; this is not a claim of universal client compatibility.
+- Receipt confirmation count defaults to three; this is not guaranteed finality. Review the mainnet confirmation/reorganization policy and treasury gas-budget/alerting before launch. Real Base Sepolia and Base-mainnet transfers have not been performed.
+- Configure another service's server price and scoped backend secret, then integrate its private usage calls and shared account identity. This repository supplies the shared API/TypeScript client; unknown external repositories are not automatically integrated.
+- There is no automated treasury refund or withdrawal UI. Establish refund terms and an operator reconciliation/adjustment procedure before accepting public payments. Do not merge test credits into a production balance database.
+- Proposed default Cubicle price is 3,334 micro-USDC/minute (~0.20 USDC/hour); pricing and infrastructure margins need review before live activation.
+- The previous Anthropic approval-review restriction still applies. No Anthropic key was supplied, so real autonomous model-driven desktop execution remains unverified.

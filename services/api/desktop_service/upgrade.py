@@ -2,7 +2,7 @@
 
 from sqlalchemy import inspect, text
 
-from . import feature_models  # noqa: F401
+from . import crypto_models, feature_models, payment_models  # noqa: F401
 from .db import Base, engine
 
 
@@ -13,12 +13,12 @@ def upgrade():
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN system_snapshot_id VARCHAR"))
 
-    if engine.dialect.name == 'postgresql':
+    if engine.dialect.name == "postgresql":
         with engine.begin() as connection:
             for name in Base.metadata.tables:
                 connection.execute(text(f'ALTER TABLE "{name}" ENABLE ROW LEVEL SECURITY'))
-                for role in ('anon','authenticated'):
-                    if connection.execute(text('SELECT 1 FROM pg_roles WHERE rolname=:role'),{'role':role}).scalar():
+                for role in ("anon", "authenticated"):
+                    if connection.execute(text("SELECT 1 FROM pg_roles WHERE rolname=:role"), {"role": role}).scalar():
                         connection.execute(text(f'REVOKE ALL ON TABLE "{name}" FROM "{role}"'))
 
 

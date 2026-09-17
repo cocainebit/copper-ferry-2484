@@ -1,10 +1,10 @@
 # Backup and recovery
 
-The local tool creates encrypted restic backups of Postgres, OpenSandbox metadata, desktop home volumes, system snapshots and template images. A completed local backup was extracted and restored into a fresh disposable Postgres database; every recorded table count, SQLite integrity and desktop archive structure passed. A full desktop boot on a replacement host remains untested.
+The local tool creates encrypted restic backups of Postgres (including payment invoices, balances and ledger entries), OpenSandbox metadata, desktop home volumes, system snapshots and template images. A completed local backup was extracted and restored into a fresh disposable Postgres database; every recorded table count, SQLite integrity and desktop archive structure passed. A full desktop boot on a replacement host remains untested.
 
 ## Create a backup
 
-Stop desktops through the dashboard and wait for their snapshots to finish. Stop the API and worker, then wait at least 30 seconds. The script refuses a running worker or active desktop and holds database locks during capture.
+Stop desktops through the dashboard and wait for their snapshots to finish. Stop the API, desktop worker, payment worker and facilitator, then wait at least 30 seconds. The script refuses a running worker or active desktop and holds database locks during capture.
 
 ```sh
 cd services/api

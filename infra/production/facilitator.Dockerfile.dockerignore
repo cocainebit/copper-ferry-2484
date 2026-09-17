@@ -1,0 +1,10 @@
+**
+!services
+!services/api
+!services/api/pyproject.toml
+!services/api/uv.lock
+!services/api/desktop_service
+!services/api/desktop_service/config.py
+!services/api/desktop_service/x402_rail.py
+!scripts
+!scripts/run_x402_facilitator.py

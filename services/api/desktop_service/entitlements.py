@@ -8,10 +8,11 @@ from fastapi import HTTPException
 from pydantic import BaseModel, StrictBool, StrictInt, StrictStr, ValidationError
 from sqlalchemy import or_, select
 
+from . import platform_credits
 from .config import settings
 from .db import Entitlement, Ledger, TrialIntent, now
 
-SERVICES = {"agent-desktop": {"name": "Agent Desktop", "minutes": 600}}
+SERVICES = {"agent-desktop": {"name": "Cubicle", "minutes": 600}}
 
 
 class PaymentProof(BaseModel):
@@ -97,7 +98,7 @@ def create_intent(db, workspace, user, service, wallet):
     nonce = secrets.token_urlsafe(24)
     expires = now() + timedelta(minutes=30)
     message = (
-        f"Agent Desktop trial enrollment\nOrigin: {s.public_url}\nChain: {s.trial_chain}\n"
+        f"Cubicle trial enrollment\nOrigin: {s.public_url}\nChain: {s.trial_chain}\n"
         f"Wallet: {wallet}\nUser: {user['id']}\nWorkspace: {workspace}\nService: {service}\n"
         f"Nonce: {nonce}\nExpires: {expires.isoformat()}Z\n"
         "This signature verifies wallet ownership. It does not authorize a token transfer."
@@ -189,25 +190,34 @@ def trial(db, wid):
     )
 
 
-def balance(db, w):
+def legacy_balance(db, w):
     if w.subscription in ("active", "trialing") and (not w.period_end or w.period_end > now()):
-        return w.included + w.topup
+        return max(0, w.included + w.topup)
     t = trial(db, w.id)
-    return t.remaining if t else 0
+    return max(0, t.remaining) if t else 0
+
+
+def balance(db, w):
+    return legacy_balance(db, w) + platform_credits.available(db, w.id) // platform_credits.price("cubicle")
 
 
 def charge(db, w, computer_id, bucket):
+    w = platform_credits.lock_workspace(db, w.id)
     key = f"usage:{computer_id}:{bucket}"
-    if db.get(Ledger, key):
+    previous = db.get(Ledger, key)
+    if previous:
+        if previous.workspace_id != w.id:
+            raise HTTPException(409, "Usage key belongs to another workspace")
         return True
-    if balance(db, w) <= 0:
-        return False
-    if w.subscription in ("active", "trialing") and (not w.period_end or w.period_end > now()):
-        if w.included > 0:
-            w.included -= 1
+    if legacy_balance(db, w) > 0:
+        if w.subscription in ("active", "trialing") and (not w.period_end or w.period_end > now()):
+            if w.included > 0:
+                w.included -= 1
+            else:
+                w.topup -= 1
         else:
-            w.topup -= 1
-    else:
-        trial(db, w.id).remaining -= 1
+            trial(db, w.id).remaining -= 1
+    elif not platform_credits.debit(db, w.id, "cubicle", 1, key):
+        return False
     db.add(Ledger(id=key, workspace_id=w.id, amount=-1, reason="computer-minute"))
     return True

@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy import func, select, text
 
 from .config import settings
+from .crypto_models import PaymentInvoice
 from .db import Computer, Run, ServiceHeartbeat, database, now
 
 router = APIRouter()
@@ -34,12 +35,22 @@ async def ready(db=Depends(database)):
         db.execute(text("SELECT 1"))
         heartbeat = db.get(ServiceHeartbeat, "desktop-worker")
         worker = bool(heartbeat and now() - heartbeat.updated_at < timedelta(seconds=30))
+        payment_heartbeat = db.get(ServiceHeartbeat, "payment-worker")
+        payments = not settings().x402_enabled or bool(
+            payment_heartbeat and now() - payment_heartbeat.updated_at < timedelta(seconds=30)
+        )
     except Exception:
         return JSONResponse({"ready": False, "database": False, "worker": False}, status_code=503)
     sandbox = await sandbox_healthy()
     return JSONResponse(
-        {"ready": worker and sandbox, "database": True, "worker": worker, "desktop_runtime": sandbox},
-        status_code=200 if worker and sandbox else 503,
+        {
+            "ready": worker and sandbox and payments,
+            "database": True,
+            "worker": worker,
+            "desktop_runtime": sandbox,
+            "payments": payments,
+        },
+        status_code=200 if worker and sandbox and payments else 503,
     )
 
 
@@ -58,6 +69,25 @@ def metrics(authorization: str | None = Header(default=None), db=Depends(databas
         "# TYPE desktop_api_uptime_seconds gauge",
         f"desktop_api_uptime_seconds {time.monotonic() - started:.2f}",
     ]
+    payment_heartbeat = db.get(ServiceHeartbeat, "payment-worker")
+    payment_age = max(0, (now() - payment_heartbeat.updated_at).total_seconds()) if payment_heartbeat else -1
+    oldest_pending = db.scalar(
+        select(func.min(PaymentInvoice.submitted_at)).where(PaymentInvoice.status == "settlement_pending")
+    )
+    lines.extend(
+        [
+            "# TYPE platform_payments_enabled gauge",
+            f"platform_payments_enabled {int(settings().x402_enabled)}",
+            "# TYPE platform_payment_worker_heartbeat_age_seconds gauge",
+            f"platform_payment_worker_heartbeat_age_seconds {payment_age}",
+            "# TYPE platform_oldest_pending_payment_age_seconds gauge",
+            f"platform_oldest_pending_payment_age_seconds {max(0, (now() - oldest_pending).total_seconds()) if oldest_pending else 0}",
+        ]
+    )
+    for status, count in db.execute(select(PaymentInvoice.status, func.count()).group_by(PaymentInvoice.status)):
+        if status not in {"open", "paid", "failed", "settlement_pending"}:
+            status = "other"
+        lines.append(f'platform_payment_invoices{{status="{status}"}} {count}')
     for status, count in db.execute(select(Computer.status, func.count()).group_by(Computer.status)):
         if status not in {"starting", "running", "stopping", "stopped", "failed", "deleted", "copying", "customizing"}:
             status = "other"

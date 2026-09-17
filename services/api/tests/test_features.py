@@ -228,3 +228,16 @@ def test_copy_failed_can_be_deleted(client, db, source):
     assert client.delete(f"/v1/computers/{source.id}", params={"confirm": source.name}).status_code == 200
     db.refresh(source)
     assert source.status == "deleting"
+
+
+def test_crypto_prepaid_access_allows_second_saved_computer(fc, db, source):
+    from desktop_service.db import Workspace
+    from desktop_service.platform_credits import grant
+
+    workspace = db.get(Workspace, "w")
+    workspace.subscription = "inactive"
+    workspace.included = 0
+    grant(db, "w", 1_000_000, "crypto-feature-fixture", "test funding")
+    db.commit()
+    response = fc.post(f"/v1/computers/{source.id}/clone", json={"name": "Prepaid copy"})
+    assert response.status_code == 202

@@ -6,5 +6,7 @@ cd "$(dirname "$0")/.."
 api_pid=$!
 ( cd services/api && .venv/bin/python -m desktop_service.worker ) &
 worker_pid=$!
-trap 'kill "$api_pid" "$worker_pid" 2>/dev/null || true' EXIT INT TERM
+( cd services/api && .venv/bin/python -m desktop_service.payment_worker ) &
+payment_pid=$!
+trap 'kill "$api_pid" "$worker_pid" "$payment_pid" 2>/dev/null || true' EXIT INT TERM
 npm run dev

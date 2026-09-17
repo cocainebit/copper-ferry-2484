@@ -35,3 +35,25 @@ def test_metrics_require_separate_operator_token(client, monkeypatch):
     assert response.status_code == 200
     assert "desktop_worker_heartbeat_age_seconds" in response.text
     assert "operator-secret" not in response.text
+
+
+def test_crypto_metrics_expose_only_aggregate_status(client, monkeypatch):
+    monkeypatch.setattr(settings(), "ops_token", "operator-secret")
+    response = client.get("/internal/metrics", headers={"Authorization": "Bearer operator-secret"})
+    assert "platform_payment_worker_heartbeat_age_seconds -1" in response.text
+    assert "platform_oldest_pending_payment_age_seconds 0" in response.text
+    assert "platform_payments_enabled" in response.text
+    assert "PAYMENT-SIGNATURE" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_enabled_payments_require_reconciliation_worker(db, monkeypatch):
+    async def healthy():
+        return True
+
+    monkeypatch.setattr(operations, "sandbox_healthy", healthy)
+    monkeypatch.setattr(settings(), "x402_enabled", True)
+    assert (await operations.ready(db)).status_code == 503
+    db.add(ServiceHeartbeat(id="payment-worker"))
+    db.commit()
+    assert (await operations.ready(db)).status_code == 200

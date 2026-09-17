@@ -55,7 +55,7 @@ export default function Trial() {
       <nav className="landing-nav">
         <Link href="/" className="brand">
           <Mark />
-          agent desktop
+          cubicle
         </Link>
         <Link className="text-link" href="/app">
           Workspace <ArrowRight size={15} />
@@ -71,7 +71,7 @@ export default function Trial() {
             <br />A week of possibilities.
           </h1>
           <p className="trial-intro">
-            Try Agent Desktop for seven days.
+            Try Cubicle for seven days.
             <br />A little proof of ownership. A whole computer to explore.
           </p>
           <div className="trial-steps">

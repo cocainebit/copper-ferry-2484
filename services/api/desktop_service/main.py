@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .billing import router as billing_router
 from .config import settings
+from .crypto_payments import router as crypto_router
 from .db import (
     Computer,
     Credential,
@@ -37,7 +38,9 @@ from .gateway import router as gateway_router
 from .onboarding import router as onboarding_router
 from .operations import requests as request_counts
 from .operations import router as operations_router
+from .platform_credits import available, paid_access
 from .security import digest, identity, member, seal
+from .x402_rail import configuration_status
 
 
 @asynccontextmanager
@@ -57,13 +60,14 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="Agent Desktop & Platform Entitlements", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Cubicle & Platform Billing", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings().allowed_origins or [settings().public_url],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "PAYMENT-SIGNATURE"],
+    expose_headers=["PAYMENT-REQUIRED", "PAYMENT-RESPONSE"],
 )
 
 
@@ -128,7 +132,8 @@ def config():
     )
     return {
         "dev_mode": s.dev_mode,
-        "billing_available": bool(s.stripe_secret_key and s.launch_enabled),
+        "billing_available": configuration_status()["enabled"],
+        "payment_provider": "x402",
         "trials_available": configured,
         "services": {
             key: {"name": key.replace("-", " ").title(), "minutes": minutes}
@@ -151,6 +156,7 @@ def workspaces(user=Depends(identity), db=Depends(database)):
             "role": m.role,
             "subscription": w.subscription,
             "credits": balance(db, w),
+            "balance_micro_usdc": available(db, w.id),
             "has_key": db.get(Credential, w.id) is not None,
         }
         for w, m in rows
@@ -276,8 +282,8 @@ def create_computer(
     if old:
         return public(old)
     if balance(db, w) <= 0:
-        raise HTTPException(402, "An active subscription or trial with credits is required")
-    cap = 2 if w.subscription == "active" else 1
+        raise HTTPException(402, "Add platform credits or activate a trial first")
+    cap = 2 if w.subscription == "active" or paid_access(db, w.id) else 1
     if (
         db.scalar(
             select(func.count()).select_from(Computer).where(Computer.workspace_id == wid, Computer.status != "deleted")
@@ -536,6 +542,7 @@ def entitlements(wid: str, user=Depends(identity), db=Depends(database)):
     return {
         "subscription": w.subscription,
         "credits": balance(db, w),
+        "balance_micro_usdc": available(db, w.id),
         "trials": [
             {
                 "service": e.service,
@@ -554,6 +561,7 @@ app.include_router(features_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)
+app.include_router(crypto_router)
 app.include_router(gateway_router)
 
 

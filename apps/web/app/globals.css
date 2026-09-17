@@ -1838,3 +1838,26 @@ button.file-row:hover {
   border: 0;
   cursor: pointer;
 }
+
+.crypto-address {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.invoice-history {
+  list-style: none;
+  padding: 0;
+}
+.invoice-history li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+#topup-amount {
+  display: block;
+  padding: 12px;
+  margin: 12px 0;
+  background: #17191a;
+  color: inherit;
+  border: 1px solid #333;
+  border-radius: 10px;
+  width: 100%;
+}

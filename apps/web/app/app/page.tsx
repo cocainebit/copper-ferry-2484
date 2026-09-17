@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { CryptoBilling } from "@/components/crypto-billing";
 import { PlatformFeatures } from "@/components/platform-features";
 import { ServiceSetup } from "@/components/service-setup";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -896,88 +897,35 @@ export default function Dashboard() {
             </article>
           </section>
         ) : (
-          <section className="settings-page">
-            <div className="page-heading">
-              <div>
-                <span className="eyebrow">YOUR PLAN</span>
-                <h1>A little room to grow.</h1>
-                <p>Simple pricing. No surprises.</p>
-              </div>
-            </div>
-            <div className="billing-grid">
-              <article className="settings-card">
-                <span className="tiny-label">STARTER</span>
-                <div className="billing-price">
-                  $29<span>/month</span>
+          <>
+            <CryptoBilling
+              key={wid}
+              workspaceId={wid}
+              owner={workspace.role === "owner"}
+            />
+            {entitlements?.trials?.map(
+              (trial: {
+                service: string;
+                active: boolean;
+                expires_at: string;
+              }) => (
+                <div className="setup-banner" key={trial.service}>
+                  <span>
+                    {trial.service === "agent-desktop"
+                      ? "Cubicle"
+                      : trial.service}{" "}
+                    trial · {trial.active ? "Active" : "Expired or used"} · Ends{" "}
+                    {new Date(
+                      trial.expires_at.endsWith("Z") ||
+                        trial.expires_at.includes("+")
+                        ? trial.expires_at
+                        : trial.expires_at + "Z",
+                    ).toLocaleDateString()}
+                  </span>
                 </div>
-                <p>100 computer-hours · 2 saved computers · 3 members</p>
-                <div className="usage-bar">
-                  <i
-                    style={{
-                      width: `${Math.min(100, (workspace.credits / 6000) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <p className="usage-caption">
-                  {(workspace.credits / 60).toFixed(1)} hours remaining{" "}
-                  <span>{workspace.subscription}</span>
-                </p>
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    perform(async () => {
-                      const r = await api(
-                        `/workspaces/${wid}/billing/${workspace.subscription === "active" ? "portal" : "subscription"}`,
-                        "POST",
-                      );
-                      location.href = r.url;
-                    })
-                  }
-                >
-                  {workspace.subscription === "active"
-                    ? "Manage subscription"
-                    : "Subscribe to Starter"}
-                  <ArrowUpRight size={15} />
-                </Button>
-              </article>
-              <article className="settings-card">
-                <span className="tiny-label">KEEP GOING</span>
-                <h2>More time for your ideas.</h2>
-                <p>
-                  Add 50 computer-hours for $10.
-                  <br />
-                  Top-ups carry forward while subscribed.
-                </p>
-                <Button
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() =>
-                    perform(async () => {
-                      const r = await api(
-                        `/workspaces/${wid}/billing/topup`,
-                        "POST",
-                      );
-                      location.href = r.url;
-                    })
-                  }
-                >
-                  Add 50 hours <Plus size={15} />
-                </Button>
-                <Link className="text-link" href="/trial">
-                  <Gift size={15} />
-                  Explore token-holder trials
-                </Link>
-              </article>
-            </div>
-            {entitlements?.trials?.map((t: any) => (
-              <div className="setup-banner" key={t.service}>
-                <span>
-                  {t.service} trial · {t.active ? "Active" : "Expired or used"}{" "}
-                  · Ends {new Date(t.expires_at + "Z").toLocaleDateString()}
-                </span>
-              </div>
-            ))}
-          </section>
+              ),
+            )}
+          </>
         )}
       </div>
       <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
