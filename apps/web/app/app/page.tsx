@@ -54,6 +54,7 @@ import { AppsPanel } from "@/components/apps";
 import { TemplateRegistry } from "@/components/template-registry";
 import { AutomationsPanel } from "@/components/automations";
 import { Fleet } from "@/components/fleet";
+import { Passes } from "@/components/passes";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -1171,6 +1172,7 @@ export default function Dashboard() {
               workspaceId={wid}
               owner={workspace.role === "owner"}
             />
+            <Passes workspaceId={wid} owner={workspace.role === "owner"} />
             {entitlements?.trials?.map(
               (trial: {
                 service: string;

@@ -16,7 +16,7 @@ from . import apps, automations, features, runtime, screens, secrets_vault
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .display import dimensions
-from .entitlements import balance, charge
+from .entitlements import can_run, charge
 from .feature_models import DesktopProfile, FeatureJob
 from .security import seal, unseal
 
@@ -295,9 +295,9 @@ async def reconcile():
                             c.error = WAITING_FOR_CAPACITY
                             db.commit()
                         continue
-                    if balance(db, w) <= 0:
+                    if not can_run(db, w):
                         c.status = "stopped"
-                        c.error = "No credits remaining"
+                        c.error = "No pass or credits remaining"
                         db.commit()
                         continue
                     if not c.vnc_secret:
@@ -349,7 +349,7 @@ async def reconcile():
                     idle_expired = (
                         idle_minutes > 0 and not active and now() - c.last_active > timedelta(minutes=idle_minutes)
                     )
-                    if balance(db, w) <= 0:
+                    if not can_run(db, w):
                         c.status = "stopping"
                     elif c.status == "running" and idle_expired:
                         c.status = "stopping"

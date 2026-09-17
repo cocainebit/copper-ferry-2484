@@ -39,7 +39,7 @@ Historical verification is recorded in [ROADBLOCKS](../ROADBLOCKS.md). Do not tr
 
 ### M1 — Product, platform and deployment contract
 
-**Decided September 17, 2026:** the platform is **Instance** (instanceOS); Cubicle is its cloud-computer service, alongside Floatlane and Plotform. Domain, hosting, pricing, trial token and treasury remain open.
+**Decided September 17, 2026:** the platform is **Instance** (instanceOS); Cubicle is its cloud-computer service, alongside Floatlane and Plotform. Billing sells a day pass and a monthly pass (unlimited runtime inside plan limits, no auto-renewal) next to per-minute pay as you go. Domain, hosting, the actual prices, trial token and treasury remain open.
 
 **Deliver:** a checked-in launch configuration matrix defining main-platform name/domain, Cubicle subdomain, shared identity ownership, service identifier, supported regions, initial payment network, trial token, capacity limits, pricing, data retention and support contact. Keep existing `agent-desktop` identifiers compatible where already persisted.
 

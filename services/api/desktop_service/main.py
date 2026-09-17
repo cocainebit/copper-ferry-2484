@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from . import providers
+from . import plans, providers
 from .api_keys import router as api_keys_router
 from .apps import router as apps_router
 from .automations import router as automations_router
@@ -38,7 +38,7 @@ from .db import (
     now,
 )
 from .display import Resolution
-from .entitlements import ChainVerifier, activate, balance, create_intent
+from .entitlements import ChainVerifier, activate, balance, can_run, create_intent
 from .feature_models import DesktopProfile
 from .features import router as features_router
 from .fleet import check_running, check_saved
@@ -319,8 +319,8 @@ def create_computer(
     old = db.scalar(select(Computer).where(Computer.workspace_id == wid, Computer.request_id == idempotency_key))
     if old:
         return public(old)
-    if balance(db, w) <= 0:
-        raise HTTPException(402, "Add platform credits or activate a trial first")
+    if not can_run(db, w):
+        raise HTTPException(402, "Buy a pass, add platform credits, or activate a trial first")
     check_saved(db, w)
     providers.validate(body.os, body.gpu, body.cpu, body.memory_gib, body.storage_gib)
     c = Computer(workspace_id=wid, name=body.name.strip(), request_id=idempotency_key)
@@ -381,8 +381,8 @@ def computer_action(
             raise HTTPException(503, "Desktop service is unavailable. Please try again shortly.")
         if c.status in ("stopping", "deleting"):
             raise HTTPException(409, "Wait for the computer to stop")
-        if balance(db, w) <= 0:
-            raise HTTPException(402, "No available computer credits")
+        if not can_run(db, w):
+            raise HTTPException(402, "No pass or credits available")
         check_running(db, w, cid)
         c.status = "starting"
         c.error = None
@@ -620,6 +620,7 @@ app.include_router(automations_router)
 app.include_router(screens_router)
 app.include_router(fleet_router)
 app.include_router(providers.router)
+app.include_router(plans.router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

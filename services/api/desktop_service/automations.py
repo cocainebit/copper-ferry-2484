@@ -32,7 +32,6 @@ from . import db as models
 from . import runtime
 from .cron import Cron, CronError
 from .db import Base, Computer, Credential, Run, Workspace, database, event, now, uid
-from .entitlements import balance
 from .security import digest, identity, member
 
 router = APIRouter(prefix="/v1")
@@ -401,11 +400,12 @@ async def watch(db, a, c):
 
 def start_blocker(db, c):
     """Same credit and plan checks as a manual start; returns a reason to skip, or None."""
+    from .entitlements import can_run
     from .fleet import check_running
 
     w = db.get(Workspace, c.workspace_id)
-    if balance(db, w) <= 0:
-        return "No credits to start the computer"
+    if not can_run(db, w):
+        return "No pass or credits to start the computer"
     try:
         check_running(db, w, c.id)
     except HTTPException as exc:

@@ -2533,3 +2533,16 @@ button.file-row:hover {
   width: 100%;
   margin-top: 8px;
 }
+
+.pass-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #2f4a3a;
+  background: #0f1512;
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  color: #a5b8ab;
+}

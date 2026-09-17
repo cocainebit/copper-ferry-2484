@@ -182,3 +182,16 @@ The dashboard viewer's speaker button streams the desktop's audio. Programmatic 
 ## Operating systems and hardware
 
 `GET /v1/platform/capabilities` lists operating systems and GPUs with availability, the reason when unavailable, and what each OS supports. Linux is always available. Windows (OpenSandbox's Windows profile, KVM hosts only) and GPUs (NVIDIA hosts only) appear once operators enable them; macOS is not offered because no Apple-hardware provider exists. Create with `os` and `gpu` on `POST /v1/workspaces/{id}/computers`; unavailable choices fail with 409 before anything is stored. Windows computers support the viewer and lifecycle automations only.
+
+## Passes and pay as you go
+
+Cubicle bills two ways at once, both drawing on prepaid USDC credits:
+
+- **Pay as you go.** Every minute a computer runs debits credits at the per-minute price. This is what an agent buying a few minutes uses.
+- **Passes.** A day pass (24 h) or monthly pass (30 days) bought once with credits. While it is active, runtime on computers inside the pass costs nothing, and the plan's own limits apply (how many computers may run and be saved, the largest resource tier, whether GPUs are allowed). x402 cannot charge again on its own, so a pass never renews itself: buying again while one is active extends it from its current end date.
+
+`GET /v1/plans` returns the catalog, each plan's limits, its price when the owner has set one (`for_sale`), and the per-minute rate. A plan without a configured price is listed but cannot be bought, and the dashboard says so rather than inventing a number. `POST /v1/workspaces/{id}/passes` with `{plan_id}` and an `Idempotency-Key` buys or extends (owner only, charged exactly once per key). `GET /v1/workspaces/{id}/pass` returns the active pass and recent history.
+
+Minutes on a computer larger than the pass includes stay on per-minute billing. Every minute is recorded either way, so fleet usage stays truthful: covered minutes are stored at zero cost with the reason `included-in-pass`. When a pass expires, metering falls back to credits; with no credits left the computer stops.
+
+Prices are set by the operator as SKUs (`cubicle-pass-day`, `cubicle-pass-month`) in `PLATFORM_SERVICE_PRICES`, in micro-USDC.

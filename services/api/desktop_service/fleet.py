@@ -27,12 +27,23 @@ ACTIVE_RUN = ["queued", "running", "paused", "awaiting_approval"]
 
 
 def limits(db, w):
+    from . import plans
+
     s = settings()
+    current, plan = plans.plan_of(db, w.id)
+    if plan:
+        return {
+            "plan": plan["name"],
+            "saved": plan["saved_computers"],
+            "running": plan["running_computers"],
+            "expires_at": current.expires_at,
+        }
     paid = w.subscription == "active" or paid_access(db, w.id)
     return {
         "plan": "paid" if paid else "trial",
         "saved": s.paid_saved_computers if paid else s.trial_saved_computers,
         "running": s.paid_running_computers if paid else s.trial_running_computers,
+        "expires_at": None,
     }
 
 

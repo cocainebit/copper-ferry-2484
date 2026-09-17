@@ -13,7 +13,6 @@ from . import feature_runtime, runtime
 from .config import settings
 from .db import Computer, Run, Workspace, database, event, now
 from .display import RESOLUTIONS, Resolution
-from .entitlements import balance
 from .feature_models import DesktopProfile, DesktopTemplate, FeatureJob
 from .security import identity, member
 
@@ -83,11 +82,12 @@ def old_job(db, wid, key):
 
 
 def reserve_computer(db, wid, name, key):
+    from .entitlements import can_run
     from .fleet import check_saved
 
     w = db.get(Workspace, wid)
-    if balance(db, w) <= 0:
-        raise HTTPException(402, "Add platform credits or activate a trial first")
+    if not can_run(db, w):
+        raise HTTPException(402, "Buy a pass, add platform credits, or activate a trial first")
     check_saved(db, w)
     c = Computer(workspace_id=wid, name=name.strip(), request_id="feature:" + key, status="copying")
     db.add(c)

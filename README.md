@@ -14,6 +14,7 @@ Cubicle is the cloud-computer service for AI agents on **Instance** (instanceOS)
 - OpenSandbox adapter with persistent home volumes, crash recovery by computer metadata, stop/restart, expiration renewal and deletion cleanup.
 - Owner-controlled CPU/RAM profiles, durable full-desktop cloning, private system templates and independent computers created from templates.
 - PostgreSQL storage, advisory-lock scheduling, concurrent credit metering checks, readiness endpoints and private Prometheus metrics.
+- Day and monthly passes bought with credits (unlimited runtime inside plan limits, no auto-renewal) next to per-minute metering; prices are operator-set and plans without a price cannot be bought.
 - USDC/x402 v2 invoice checkout, EOA wallet authorization, independent settlement checks, durable reconciliation and a shared workspace ledger with idempotent per-service usage debits. The existing Stripe backend is retained for compatibility, but the product payment flow is crypto.
 - Seven-day, service-scoped trials with wallet ownership challenges, exact-token verification, finalized historical holdings checks and replay protection. An EVM adapter is included; token/network/treasury configuration remains disabled until the actual platform token is known and chain tests pass.
 

@@ -116,3 +116,10 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - Windows and GPU computers are config-gated (`WINDOWS_ENABLED`, `GPU_ENABLED`) and unit-tested only; they need a KVM host and an NVIDIA host running OpenSandbox. Windows computers support the viewer and lifecycle automations; agent control, files, apps and the terminal are Linux-only for now. macOS is not offered.
 - Automation `agent_task` actions and template `requires_secrets` for provider keys are wired but cannot be exercised end to end without an Anthropic key.
 - Limits worth reviewing before launch: 20 automations per computer, 300 executions per day, 10 template definitions and 20 versions, 50 secrets, four screens, and plan limits now in settings (`PAID_SAVED_COMPUTERS`, `PAID_RUNNING_COMPUTERS`, `TRIAL_*`).
+
+## Billing shape (September 17, 2026, owner decision)
+
+- Cubicle sells a **day pass (24 h)** and a **monthly pass (30 days)** next to per-minute pay as you go. A pass gives unlimited runtime inside its own computer and resource limits; passes never auto-renew (x402 cannot), and buying again extends from the current expiry.
+- Prices are unset in code. Set them as `PLATFORM_SERVICE_PRICES` SKUs `cubicle-pass-day` and `cubicle-pass-month` (micro-USDC); until then the plans are listed as not for sale and the dashboard shows "price not set". The per-minute rate remains the reviewed-but-provisional 3,334 micro-USDC.
+- Open pricing questions for M1: the actual numbers, whether an annual pass exists, and whether the token-holder trial becomes a pass variant.
+- When the shared platform ledger takes over, plan purchases need their own SKUs there too (`cubicle.pass.day`, `cubicle.pass.month`) alongside the per-minute `cubicle.minute.*` SKUs.

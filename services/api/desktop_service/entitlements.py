@@ -201,13 +201,26 @@ def balance(db, w):
     return legacy_balance(db, w) + platform_credits.available(db, w.id) // platform_credits.price("cubicle")
 
 
+def can_run(db, w):
+    """A workspace may run computers on a live pass even with no credits left."""
+    from . import plans
+
+    return plans.active(db, w.id) is not None or balance(db, w) > 0
+
+
 def charge(db, w, computer_id, bucket):
+    from . import plans
+
     w = platform_credits.lock_workspace(db, w.id)
     key = f"usage:{computer_id}:{bucket}"
     previous = db.get(Ledger, key)
     if previous:
         if previous.workspace_id != w.id:
             raise HTTPException(409, "Usage key belongs to another workspace")
+        return True
+    if plans.covers_computer(db, w.id, computer_id):
+        # Included in the pass: the minute is recorded for reporting, but nothing is spent.
+        db.add(Ledger(id=key, workspace_id=w.id, amount=0, reason="included-in-pass"))
         return True
     if legacy_balance(db, w) > 0:
         if w.subscription in ("active", "trialing") and (not w.period_end or w.period_end > now()):

@@ -2,14 +2,18 @@
 
 from sqlalchemy import inspect, text
 
-from . import (  # noqa: F401
-    api_keys,
-    apps,
-    crypto_models,
-    feature_models,
-    payment_models,
-    secrets_vault,
-    template_registry,
+# Import every module that defines tables so create_all sees them on a fresh database.
+from . import (
+    api_keys,  # noqa: F401
+    apps,  # noqa: F401
+    automations,  # noqa: F401
+    crypto_models,  # noqa: F401
+    feature_models,  # noqa: F401
+    payment_models,  # noqa: F401
+    plans,  # noqa: F401
+    screens,  # noqa: F401
+    secrets_vault,  # noqa: F401
+    template_registry,  # noqa: F401
 )
 from .db import Base, engine
 

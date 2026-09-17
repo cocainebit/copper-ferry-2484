@@ -34,7 +34,7 @@ def test_overview_filters_and_real_usage(client, db):
     summary = body["summary"]
     assert summary["by_status"] == {"running": 1, "stopped": 1}
     assert summary["usage_24h_minutes"] == 3 and summary["labels"] == ["ci", "prod", "research"]
-    assert summary["limits"] == {"plan": "paid", "saved": 2, "running": 1}
+    assert summary["limits"] == {"plan": "paid", "saved": 2, "running": 1, "expires_at": None}
     assert summary["host"]["max_desktops"] == settings().max_desktops
     rows = {c["name"]: c for c in body["computers"]}
     assert rows["Research box"]["usage_24h_minutes"] == 3 and rows["Build box"]["usage_24h_minutes"] == 0
