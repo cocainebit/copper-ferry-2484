@@ -162,11 +162,12 @@ async def test_later_unrelated_transfer_is_allowed_for_reviewed_standard_token()
     assert (await verify_payment(request(), config(), rpc))["successful"]
 
 
-def signed_request():
+def signed_request(header="Cubicle trial enrollment"):
     account = Account.create()
     expiry = datetime.now(timezone.utc) + timedelta(minutes=29)
+    # Mirrors the exact message desktop_service.entitlements.create_intent signs.
     message = (
-        f"Agent Desktop trial enrollment\nOrigin: https://platform.example\nChain: optional-test-evm\nWallet: {account.address}\n"
+        f"{header}\nOrigin: https://platform.example\nChain: optional-test-evm\nWallet: {account.address}\n"
         f"User: u\nWorkspace: w\nService: agent-desktop\nNonce: random-nonce\nExpires: {expiry.isoformat()}\n"
         "This signature verifies wallet ownership. It does not authorize a token transfer."
     )
@@ -223,3 +224,17 @@ def test_malformed_signature_returns_invalid():
 def test_unconfigured_service_fails_closed():
     with pytest.raises(HTTPException):
         Settings(_env_file=None).ready()
+
+
+@pytest.mark.parametrize("header", ["Cubicle trial enrollment", "Floatlane trial enrollment", "Plotform trial enrollment"])
+def test_signature_accepts_service_branded_headers(header):
+    assert verify_signature(signed_request(header), config())["valid"]
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["trial enrollment", "Cubicle", "Cubicle trial enrollment extra", "Cubicle: trial enrollment", "x" * 41 + " trial enrollment"],
+)
+def test_signature_rejects_malformed_headers(header):
+    with pytest.raises(HTTPException):
+        verify_signature(signed_request(header), config())

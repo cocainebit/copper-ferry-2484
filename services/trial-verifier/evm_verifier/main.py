@@ -21,6 +21,8 @@ ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 HASH = re.compile(r"^0x[0-9a-fA-F]{64}$")
 
 
+HEADER = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ]{0,39} trial enrollment")
+
 def address(value):
     if not isinstance(value, str) or not ADDRESS.fullmatch(value):
         raise HTTPException(422, "Invalid EVM address")
@@ -148,9 +150,11 @@ def verify_signature(req, s):
         "Nonce",
         "Expires",
     ]
+    # The first line is a display label each service brands ("Cubicle trial enrollment"); the bound
+    # fields below, not the label, carry the semantics the signature commits to.
     if (
         len(lines) != 10
-        or lines[0] != "Agent Desktop trial enrollment"
+        or not HEADER.fullmatch(lines[0])
         or lines[-1]
         != "This signature verifies wallet ownership. It does not authorize a token transfer."
     ):

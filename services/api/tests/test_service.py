@@ -452,3 +452,41 @@ def test_computer_listing_reports_effective_profile(client, db):
         ).status_code
         == 422
     )
+
+
+def test_enrollment_message_matches_shared_verifier_contract(db, monkeypatch):
+    """The trial verifier (services/trial-verifier) parses exactly this shape; keep them in lockstep."""
+    import re
+
+    from desktop_service.entitlements import create_intent
+
+    s = settings()
+    for name, value in {
+        "trial_adapter_url": "http://verifier.local",
+        "trial_adapter_key": "adapter-key",
+        "trial_chain": "chain-test",
+        "trial_token": "token-test",
+        "trial_recipient": "treasury",
+        "trial_decimals": 9,
+    }.items():
+        monkeypatch.setattr(s, name, value)
+    intent = create_intent(db, "w", {"id": "local-user"}, "agent-desktop", "0xwallet")
+    lines = intent.message.splitlines()
+    assert len(lines) == 10
+    # Same header rule as evm_verifier.main.HEADER: a branded label, the bound fields carry meaning.
+    assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ]{0,39} trial enrollment", lines[0])
+    assert lines[0] == "Cubicle trial enrollment"
+    assert [line.split(":", 1)[0] for line in lines[1:9]] == [
+        "Origin",
+        "Chain",
+        "Wallet",
+        "User",
+        "Workspace",
+        "Service",
+        "Nonce",
+        "Expires",
+    ]
+    assert (
+        lines[3] == "Wallet: 0xwallet" and lines[6] == "Service: agent-desktop" and lines[7] == f"Nonce: {intent.nonce}"
+    )
+    assert lines[-1] == "This signature verifies wallet ownership. It does not authorize a token transfer."
