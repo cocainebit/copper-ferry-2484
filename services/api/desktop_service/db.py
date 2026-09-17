@@ -82,6 +82,7 @@ class Computer(Base):
     last_active: Mapped[datetime] = mapped_column(DateTime, default=now)
     metered_at: Mapped[datetime | None] = mapped_column(DateTime)
     error: Mapped[str | None] = mapped_column(Text)
+    labels: Mapped[list | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 

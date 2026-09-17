@@ -390,6 +390,20 @@ async def watch(db, a, c):
     return None
 
 
+def start_blocker(db, c):
+    """Same credit and plan checks as a manual start; returns a reason to skip, or None."""
+    from .fleet import check_running
+
+    w = db.get(Workspace, c.workspace_id)
+    if balance(db, w) <= 0:
+        return "No credits to start the computer"
+    try:
+        check_running(db, w, c.id)
+    except HTTPException as exc:
+        return exc.detail
+    return None
+
+
 async def execute_run(db, r, a, c):
     kind = a.action["kind"]
     if kind == "stop":
@@ -399,6 +413,10 @@ async def execute_run(db, r, a, c):
         return
     if kind == "start":
         if c.status in ("stopped", "failed"):
+            skip = start_blocker(db, c)
+            if skip:
+                finish(db, r, "skipped", skip)
+                return
             c.status, c.error = "starting", None
         if c.status in ("starting", "running"):
             finish(db, r, "succeeded")
@@ -407,9 +425,9 @@ async def execute_run(db, r, a, c):
         return
     if c.status != "running":
         if c.status in ("stopped", "failed") and a.start_if_stopped:
-            w = db.get(Workspace, c.workspace_id)
-            if balance(db, w) <= 0:
-                finish(db, r, "skipped", "No credits to start the computer")
+            skip = start_blocker(db, c)
+            if skip:
+                finish(db, r, "skipped", skip)
                 return
             c.status, c.error = "starting", None
             r.status = "waiting_computer"

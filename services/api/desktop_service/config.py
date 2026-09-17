@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     storage_quota_enforced: bool = False
     anthropic_model: str = "claude-sonnet-4-6"
     max_desktops: int = 4
+    paid_saved_computers: int = 2
+    paid_running_computers: int = 1
+    trial_saved_computers: int = 1
+    trial_running_computers: int = 1
     launch_enabled: bool = False
     ops_token: str = ""
     x402_enabled: bool = False

@@ -15,7 +15,6 @@ from .db import Computer, Run, Workspace, database, event, now
 from .display import RESOLUTIONS, Resolution
 from .entitlements import balance
 from .feature_models import DesktopProfile, DesktopTemplate, FeatureJob
-from .platform_credits import paid_access
 from .security import identity, member
 
 router = APIRouter(prefix="/v1")
@@ -84,14 +83,12 @@ def old_job(db, wid, key):
 
 
 def reserve_computer(db, wid, name, key):
+    from .fleet import check_saved
+
     w = db.get(Workspace, wid)
     if balance(db, w) <= 0:
         raise HTTPException(402, "Add platform credits or activate a trial first")
-    count = db.scalar(
-        select(func.count()).select_from(Computer).where(Computer.workspace_id == wid, Computer.status != "deleted")
-    )
-    if count >= (2 if w.subscription == "active" or paid_access(db, wid) else 1):
-        raise HTTPException(409, "Saved computer limit reached")
+    check_saved(db, w)
     c = Computer(workspace_id=wid, name=name.strip(), request_id="feature:" + key, status="copying")
     db.add(c)
     db.flush()

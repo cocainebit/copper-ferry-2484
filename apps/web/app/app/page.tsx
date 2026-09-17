@@ -53,6 +53,7 @@ import { Secrets } from "@/components/secrets";
 import { AppsPanel } from "@/components/apps";
 import { TemplateRegistry } from "@/components/template-registry";
 import { AutomationsPanel } from "@/components/automations";
+import { Fleet } from "@/components/fleet";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -491,51 +492,14 @@ export default function Dashboard() {
                 </button>
               </div>
             )}
-            <div className="computer-grid">
-              {computers.map((c) => (
-                <motion.button
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key={c.id}
-                  className="computer-card"
-                  onClick={() => setSelected(c.id)}
-                >
-                  <div className="computer-thumbnail">
-                    <div className="mini-landscape" />
-                    <Monitor size={36} strokeWidth={1} />
-                    <span className={"computer-state " + c.status}>
-                      <span
-                        className={
-                          "status-dot " +
-                          (c.status === "running" ? "green" : "")
-                        }
-                      />
-                      {c.status}
-                    </span>
-                  </div>
-                  <div className="computer-card-bottom">
-                    <div>
-                      <h3>{c.name}</h3>
-                      <p>
-                        Linux · {c.cpu ?? 2} vCPU · {c.memory_gib ?? 4} GiB RAM
-                        · {c.storage_gib ?? 20} GiB
-                      </p>
-                    </div>
-                    <ArrowUpRight size={18} />
-                  </div>
-                </motion.button>
-              ))}
-              <button
-                className="new-computer-card"
-                onClick={() => setCreateOpen(true)}
-              >
-                <span>
-                  <Plus size={24} />
-                </span>
-                <h3>A fresh start.</h3>
-                <p>Create a computer for your next project.</p>
-              </button>
-            </div>
+            <Fleet
+              workspaceId={wid}
+              workspaces={workspaces}
+              owner={workspace.role === "owner"}
+              onOpen={(id) => setSelected(id)}
+              onCreate={() => setCreateOpen(true)}
+              onChanged={() => refresh().catch(() => {})}
+            />
             <div className="workspace-note">
               <Monitor size={16} />
               Computers keep their files when stopped. Agent tasks continue when

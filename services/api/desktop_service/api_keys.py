@@ -64,6 +64,9 @@ MANAGE_ROUTES = {
     "/v1/automations/{aid}/run",
     "/v1/computers/{cid}/screens",
     "/v1/computers/{cid}/screens/{number}",
+    "/v1/computers/{cid}/labels",
+    "/v1/workspaces/{wid}/computers/bulk",
+    "/v1/computers/{cid}/move",
 }
 
 

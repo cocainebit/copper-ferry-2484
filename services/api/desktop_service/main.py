@@ -40,11 +40,13 @@ from .display import Resolution
 from .entitlements import ChainVerifier, activate, balance, create_intent
 from .feature_models import DesktopProfile
 from .features import router as features_router
+from .fleet import check_running, check_saved
+from .fleet import router as fleet_router
 from .gateway import router as gateway_router
 from .onboarding import router as onboarding_router
 from .operations import requests as request_counts
 from .operations import router as operations_router
-from .platform_credits import available, paid_access
+from .platform_credits import available
 from .screens import router as screens_router
 from .secrets_vault import router as secrets_router
 from .security import digest, identity, member, seal
@@ -129,7 +131,8 @@ def computer(db, cid, user, lock=False):
 
 
 def public(c):
-    return {k: getattr(c, k) for k in ("id", "name", "workspace_id", "status", "controller", "error", "created_at")}
+    body = {k: getattr(c, k) for k in ("id", "name", "workspace_id", "status", "controller", "error", "created_at")}
+    return body | {"labels": c.labels or []}
 
 
 @app.get("/health")
@@ -313,14 +316,7 @@ def create_computer(
         return public(old)
     if balance(db, w) <= 0:
         raise HTTPException(402, "Add platform credits or activate a trial first")
-    cap = 2 if w.subscription == "active" or paid_access(db, w.id) else 1
-    if (
-        db.scalar(
-            select(func.count()).select_from(Computer).where(Computer.workspace_id == wid, Computer.status != "deleted")
-        )
-        >= cap
-    ):
-        raise HTTPException(409, "Saved computer limit reached")
+    check_saved(db, w)
     c = Computer(workspace_id=wid, name=body.name.strip(), request_id=idempotency_key)
     db.add(c)
     db.flush()
@@ -379,13 +375,7 @@ def computer_action(
             raise HTTPException(409, "Wait for the computer to stop")
         if balance(db, w) <= 0:
             raise HTTPException(402, "No available computer credits")
-        others = db.scalar(
-            select(func.count())
-            .select_from(Computer)
-            .where(Computer.workspace_id == w.id, Computer.id != cid, Computer.status.in_(["running", "starting"]))
-        )
-        if others:
-            raise HTTPException(409, "Only one running computer is included")
+        check_running(db, w, cid)
         c.status = "starting"
         c.error = None
     elif action == "stop":
@@ -619,6 +609,7 @@ app.include_router(apps_router)
 app.include_router(template_registry_router)
 app.include_router(automations_router)
 app.include_router(screens_router)
+app.include_router(fleet_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

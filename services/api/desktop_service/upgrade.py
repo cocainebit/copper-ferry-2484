@@ -20,6 +20,9 @@ def upgrade():
     if "system_snapshot_id" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN system_snapshot_id VARCHAR"))
+    if "labels" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE computers ADD COLUMN labels JSON"))
     if "pty_secret" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN pty_secret TEXT"))
