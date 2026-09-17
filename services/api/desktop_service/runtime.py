@@ -3,6 +3,7 @@ import base64
 import json
 import shlex
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from opensandbox import Sandbox
 from opensandbox.config import ConnectionConfig
@@ -26,7 +27,7 @@ def connection():
     )
 
 
-async def create(cid, password, snapshot_id=None):
+async def create(cid, password, snapshot_id=None, pty_token=""):
     from .feature_runtime import resolution_for, resource_for, storage_for
 
     resolution = resolution_for(cid)
@@ -54,6 +55,7 @@ async def create(cid, password, snapshot_id=None):
         env={
             "DESKTOP_RESOLUTION": resolution,
             "VNC_PASSWORD": password,
+            "PTY_TOKEN": pty_token,
             "CHROMIUM_DEV_FLAGS": "--no-sandbox" if settings().dev_mode else "",
         },
         entrypoint=desktop_entrypoint(resolution, bool(snapshot_id)),
@@ -71,20 +73,38 @@ async def create(cid, password, snapshot_id=None):
     return sb.id
 
 
-def desktop_entrypoint(resolution, from_snapshot=False):
-    dimensions(resolution)
-    if not from_snapshot:
-        return ["/opt/desktop/start.sh"]
+GUEST_PTY_SERVER = Path(__file__).with_name("guest") / "pty_server.py"
+
+
+def snapshot_migration():
     # Upgrade only the exact platform-owned legacy Xvfb line in saved images.
     # Leave user-modified scripts untouched; verify actual geometry after boot.
-    migration = (
+    return (
         "from pathlib import Path; "
         "p=Path('/opt/desktop/start.sh'); s=p.read_text(); "
         "old='Xvfb :0 -screen 0 1440x900x24 -nolisten tcp &'; "
         "new='Xvfb :0 -screen 0 \"${DESKTOP_RESOLUTION:-1440x900}x24\" -nolisten tcp &'; "
         "p.write_text(s.replace(old,new)) if old in s else None"
     )
-    return ["/bin/sh", "-c", "python3 -c " + shlex.quote(migration) + " && exec /opt/desktop/start.sh"]
+
+
+def desktop_entrypoint(resolution, from_snapshot=False):
+    """Boot wrapper: refresh the platform-owned PTY server, launch it, then start the desktop.
+
+    The server is written from the API's copy at every boot so saved system snapshots never pin an old
+    version. Images that predate the websockets dependency simply fail to start it (logged in /tmp/pty.log)
+    and the dashboard falls back to the one-shot command runner.
+    """
+    dimensions(resolution)
+    payload = base64.b64encode(GUEST_PTY_SERVER.read_bytes()).decode()
+    steps = [
+        f"printf %s {payload} | base64 -d > /opt/desktop/pty_server.py",
+        "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)",
+    ]
+    if from_snapshot:
+        steps.append("python3 -c " + shlex.quote(snapshot_migration()))
+    steps.append("exec /opt/desktop/start.sh")
+    return ["/bin/sh", "-c", " && ".join(steps)]
 
 
 async def verify_display(sid, resolution):

@@ -8,9 +8,10 @@ import websockets
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from . import db as models
 from . import runtime
 from .config import settings
-from .db import Computer, Session, database, event, now
+from .db import Computer, database, event, now
 from .security import identity, member, unseal
 
 router = APIRouter()
@@ -28,76 +29,137 @@ def authorize(db, cid, user):
     return c
 
 
-@router.post("/v1/computers/{cid}/viewer-ticket")
-def ticket(cid: str, user=Depends(identity), db=Depends(database)):
-    c = authorize(db, cid, user)
+def issue(user, cid, purpose, control):
     claims = {
         "sub": user["id"],
         "cid": cid,
         "exp": now().replace(tzinfo=timezone.utc) + timedelta(seconds=60),
         "jti": secrets.token_urlsafe(16),
-        "purpose": "desktop-viewer",
-        "control": c.controller == user["id"],
+        "purpose": purpose,
+        "control": control,
     }
+    return jwt.encode(claims, signing_key(), algorithm="HS256")
+
+
+def redeem(ws, ticket, cid, purpose):
+    if ws.headers.get("origin") != settings().public_url:
+        raise ValueError("origin")
+    claims = jwt.decode(
+        ticket, signing_key(), algorithms=["HS256"], options={"require": ["exp", "sub", "cid", "purpose"]}
+    )
+    if claims["cid"] != cid or claims["purpose"] != purpose:
+        raise ValueError("scope")
+    return claims
+
+
+@router.post("/v1/computers/{cid}/viewer-ticket")
+def ticket(cid: str, user=Depends(identity), db=Depends(database)):
+    c = authorize(db, cid, user)
+    control = c.controller == user["id"]
     return {
-        "ticket": jwt.encode(claims, signing_key(), algorithm="HS256"),
-        "control": claims["control"],
+        "ticket": issue(user, cid, "desktop-viewer", control),
+        "control": control,
         "password": unseal(c.vnc_secret) if c.vnc_secret else "",
     }
+
+
+@router.post("/v1/computers/{cid}/terminal-ticket")
+def terminal_ticket(cid: str, user=Depends(identity), db=Depends(database)):
+    c = authorize(db, cid, user)
+    if c.controller != user["id"]:
+        raise HTTPException(409, "Take control before opening the terminal")
+    return {"ticket": issue(user, cid, "desktop-terminal", True)}
+
+
+async def proxy(ws, cid, claims, sid, target, headers, control, text_frames=False):
+    """Relay one browser websocket to one sandbox websocket until either side, or the grant, ends."""
+    await ws.accept()
+    async with websockets.connect(target, additional_headers=headers, max_size=16 * 1024 * 1024) as remote:
+
+        async def incoming():
+            while True:
+                message = await ws.receive()
+                if message.get("type") == "websocket.disconnect":
+                    return
+                data = message.get("bytes")
+                if data is None:
+                    if not text_frames or message.get("text") is None:
+                        continue
+                    data = message["text"]
+                with models.Session() as db:
+                    current = authorize(db, cid, {"id": claims["sub"]})
+                    if control and current.controller != claims["sub"]:
+                        return
+                    if control:
+                        current.last_active = now()
+                        db.commit()
+                await remote.send(data)
+
+        async def outgoing():
+            async for data in remote:
+                if isinstance(data, bytes):
+                    await ws.send_bytes(data)
+                elif text_frames:
+                    await ws.send_text(data)
+
+        async def membership_watch():
+            for _ in range(3600):
+                await asyncio.sleep(1)
+                with models.Session() as db:
+                    current = authorize(db, cid, {"id": claims["sub"]})
+                    if current.sandbox_id != sid or bool(current.controller == claims["sub"]) != control:
+                        return
+
+        tasks = [asyncio.create_task(f()) for f in (incoming, outgoing, membership_watch)]
+        try:
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def sandbox_url(endpoint, path):
+    protocol = "wss" if settings().opensandbox_protocol == "https" else "ws"
+    return f"{protocol}://{endpoint}{path}"
 
 
 @router.websocket("/v1/computers/{cid}/desktop")
 async def desktop(ws: WebSocket, cid: str, ticket: str):
     try:
-        if ws.headers.get("origin") != settings().public_url:
-            raise ValueError("origin")
-        claims = jwt.decode(
-            ticket, signing_key(), algorithms=["HS256"], options={"require": ["exp", "sub", "cid", "purpose"]}
-        )
-        if claims["cid"] != cid or claims["purpose"] != "desktop-viewer":
-            raise ValueError("scope")
-        with Session() as db:
+        claims = redeem(ws, ticket, cid, "desktop-viewer")
+        with models.Session() as db:
             c = authorize(db, cid, {"id": claims["sub"]})
             control = claims["control"] and c.controller == claims["sub"]
             sid = c.sandbox_id
         endpoint, headers = await runtime.endpoint(sid, 6080 if control else 6081)
-        protocol = "wss" if settings().opensandbox_protocol == "https" else "ws"
-        target = f"{protocol}://{endpoint}/websockify"
-        await ws.accept()
-        async with websockets.connect(target, additional_headers=headers, max_size=16 * 1024 * 1024) as remote:
+        await proxy(ws, cid, claims, sid, sandbox_url(endpoint, "/websockify"), headers, control)
+    except (Exception, WebSocketDisconnect):
+        pass
+    finally:
+        try:
+            await ws.close(code=1000)
+        except (RuntimeError, WebSocketDisconnect):
+            pass
 
-            async def incoming():
-                while True:
-                    data = await ws.receive_bytes()
-                    with Session() as db:
-                        current = authorize(db, cid, {"id": claims["sub"]})
-                        if control and current.controller != claims["sub"]:
-                            return
-                        if control:
-                            current.last_active = now()
-                            db.commit()
-                    await remote.send(data)
 
-            async def outgoing():
-                async for data in remote:
-                    if isinstance(data, bytes):
-                        await ws.send_bytes(data)
-
-            async def membership_watch():
-                for _ in range(3600):
-                    await asyncio.sleep(1)
-                    with Session() as db:
-                        current = authorize(db, cid, {"id": claims["sub"]})
-                        if current.sandbox_id != sid or bool(current.controller == claims["sub"]) != control:
-                            return
-
-            tasks = [asyncio.create_task(f()) for f in (incoming, outgoing, membership_watch)]
-            try:
-                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            finally:
-                for t in tasks:
-                    t.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
+@router.websocket("/v1/computers/{cid}/pty")
+async def pty(ws: WebSocket, cid: str, ticket: str):
+    """Interactive administrator shell. Requires the same control grant as keyboard and mouse input."""
+    try:
+        claims = redeem(ws, ticket, cid, "desktop-terminal")
+        with models.Session() as db:
+            c = authorize(db, cid, {"id": claims["sub"]})
+            if c.controller != claims["sub"] or not c.pty_secret:
+                raise ValueError("control")
+            sid = c.sandbox_id
+            token = unseal(c.pty_secret)
+            event(db, cid, "Interactive terminal opened", "activity")
+            db.commit()
+        endpoint, headers = await runtime.endpoint(sid, 7681)
+        # The guest server refuses handshakes without this per-computer token.
+        headers = {**headers, "Authorization": "Bearer " + token}
+        await proxy(ws, cid, claims, sid, sandbox_url(endpoint, "/"), headers, True, text_frames=True)
     except (Exception, WebSocketDisconnect):
         pass
     finally:

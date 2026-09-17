@@ -1913,3 +1913,91 @@ button.file-row:hover {
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
 }
+.clipboard-drawer {
+  border-bottom: 1px solid #28282a;
+  background: #0f0f11;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+  color: #9a9aa2;
+}
+.clipboard-drawer label {
+  display: grid;
+  gap: 6px;
+}
+.clipboard-drawer textarea {
+  width: 100%;
+  resize: vertical;
+  background: #0b0b0d;
+  border: 1px solid #2a2a2e;
+  border-radius: 6px;
+  color: #ddd;
+  font: inherit;
+  padding: 6px 8px;
+}
+.clipboard-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.clipboard-actions .button {
+  font-size: 10px;
+  padding: 6px 10px;
+}
+.clipboard-from {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #77777f;
+}
+.clipboard-from code {
+  color: #a5b8ab;
+  overflow-wrap: anywhere;
+}
+.clipboard-from button {
+  color: #888;
+  display: inline-flex;
+}
+.terminal-live {
+  border: 1px solid #242426;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b0b0d;
+}
+.terminal-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: #77777f;
+  border-bottom: 1px solid #1c1c1f;
+}
+.terminal-host {
+  height: 280px;
+  padding: 6px 0 0 6px;
+}
+.terminal-host .xterm {
+  height: 100%;
+}
+.rename-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rename-form input {
+  background: #0f0f11;
+  border: 1px solid #2a2a2e;
+  border-radius: 6px;
+  color: #ddd;
+  font: inherit;
+  padding: 4px 8px;
+  min-width: 180px;
+}
+.computer-heading .icon-button.subtle {
+  color: #5a5a62;
+}
+.computer-heading .icon-button.subtle:hover {
+  color: #aaa;
+}

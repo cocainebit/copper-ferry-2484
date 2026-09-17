@@ -298,8 +298,12 @@ async def reconcile():
                         continue
                     if not c.vnc_secret:
                         c.vnc_secret = seal(secrets.token_urlsafe(18))
-                        db.commit()
-                    c.sandbox_id = await runtime.create(c.id, unseal(c.vnc_secret), c.system_snapshot_id)
+                    if not c.pty_secret:
+                        c.pty_secret = seal(secrets.token_urlsafe(24))
+                    db.commit()
+                    c.sandbox_id = await runtime.create(
+                        c.id, unseal(c.vnc_secret), c.system_snapshot_id, pty_token=unseal(c.pty_secret)
+                    )
                     c.status = "running"
                     c.last_active = now()
                     c.metered_at = now()

@@ -67,7 +67,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings().allowed_origins or [settings().public_url],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "PAYMENT-SIGNATURE"],
     expose_headers=["PAYMENT-REQUIRED", "PAYMENT-RESPONSE"],
 )
@@ -325,6 +325,19 @@ def create_computer(
         )
     )
     db.commit()
+    return public(c)
+
+
+@app.patch("/v1/computers/{cid}")
+def rename_computer(cid: str, body: Named, user=Depends(identity), db=Depends(database)):
+    c = computer(db, cid, user, lock=True)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(422, "Name cannot be blank")
+    if name != c.name:
+        c.name = name
+        event(db, cid, f"Computer renamed to {name}", "activity")
+        db.commit()
     return public(c)
 
 

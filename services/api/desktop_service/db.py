@@ -77,6 +77,7 @@ class Computer(Base):
     sandbox_id: Mapped[str | None] = mapped_column(String)
     system_snapshot_id: Mapped[str | None] = mapped_column(String)
     vnc_secret: Mapped[str | None] = mapped_column(Text)
+    pty_secret: Mapped[str | None] = mapped_column(Text)
     controller: Mapped[str] = mapped_column(String, default="agent")
     last_active: Mapped[datetime] = mapped_column(DateTime, default=now)
     metered_at: Mapped[datetime | None] = mapped_column(DateTime)

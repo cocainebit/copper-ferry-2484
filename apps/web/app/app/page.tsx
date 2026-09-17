@@ -31,6 +31,7 @@ import {
   Gift,
   ArrowLeft,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import {
   api,
@@ -44,6 +45,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Mark } from "@/components/brand";
 import { Viewer } from "@/components/viewer";
+import { TerminalPanel } from "@/components/terminal";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -90,6 +92,13 @@ export default function Dashboard() {
   >([]);
   const [command, setCommand] = useState("");
   const [output, setOutput] = useState("");
+  const [terminalNote, setTerminalNote] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const terminalUnavailable = useCallback(
+    (reason: string) => setTerminalNote(reason),
+    [],
+  );
   const [key, setKey] = useState("");
   const [email, setEmail] = useState("");
   const [invite, setInvite] = useState("");
@@ -171,6 +180,8 @@ export default function Dashboard() {
     setFiles([]);
     setFilePath("");
     setOutput("");
+    setTerminalNote("");
+    setRenaming(false);
     if (!selected) return;
     let done = false;
     let cursor = 0;
@@ -534,7 +545,54 @@ export default function Dashboard() {
                 >
                   <ArrowLeft size={16} />
                 </button>
-                <span>{computer.name}</span>
+                {renaming ? (
+                  <form
+                    className="rename-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const name = renameValue.trim();
+                      if (!name || name === computer.name) {
+                        setRenaming(false);
+                        return;
+                      }
+                      perform(async () => {
+                        await api(`/computers/${computer.id}`, "PATCH", {
+                          name,
+                        });
+                        setRenaming(false);
+                      });
+                    }}
+                  >
+                    <input
+                      aria-label="Computer name"
+                      value={renameValue}
+                      maxLength={80}
+                      autoFocus
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setRenaming(false);
+                      }}
+                    />
+                    <Button variant="ghost" disabled={busy}>
+                      <Check size={13} /> Save
+                    </Button>
+                  </form>
+                ) : (
+                  <>
+                    <span>{computer.name}</span>
+                    <button
+                      className="icon-button subtle"
+                      title="Rename computer"
+                      aria-label="Rename computer"
+                      onClick={() => {
+                        setRenameValue(computer.name);
+                        setRenaming(true);
+                      }}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  </>
+                )}
                 <div className="computer-actions">
                   {computer.status === "running" ? (
                     <>
@@ -724,43 +782,57 @@ export default function Dashboard() {
                     )}
                   </div>
                 ) : tab === "terminal" ? (
-                  <div className="terminal-panel">
-                    <pre>
-                      {output ||
-                        "Take control to run commands in your computer."}
-                    </pre>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        perform(async () => {
-                          const r = await api(
-                            `/computers/${selected}/terminal`,
-                            "POST",
-                            { command },
-                          );
-                          setOutput(
-                            (old) => old + "\n$ " + command + "\n" + r.output,
-                          );
-                          setCommand("");
-                        });
-                      }}
-                    >
-                      <span>❯</span>
-                      <input
-                        aria-label="Terminal command"
-                        value={command}
-                        onChange={(e) => setCommand(e.target.value)}
-                        placeholder="Enter a command…"
-                        disabled={computer.controller === "agent"}
-                      />
-                      <button
-                        disabled={busy || !command}
-                        aria-label="Run command"
+                  computer.status === "running" &&
+                  computer.controller !== "agent" &&
+                  !computer.controller.startsWith("pending:") &&
+                  !terminalNote ? (
+                    <TerminalPanel
+                      key={computer.id}
+                      computerId={computer.id}
+                      onUnavailable={terminalUnavailable}
+                    />
+                  ) : (
+                    <div className="terminal-panel">
+                      <pre>
+                        {output ||
+                          terminalNote ||
+                          (computer.status === "running"
+                            ? "Take control to open an interactive shell in your computer."
+                            : "Start your computer and take control to open a shell.")}
+                      </pre>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          perform(async () => {
+                            const r = await api(
+                              `/computers/${selected}/terminal`,
+                              "POST",
+                              { command },
+                            );
+                            setOutput(
+                              (old) => old + "\n$ " + command + "\n" + r.output,
+                            );
+                            setCommand("");
+                          });
+                        }}
                       >
-                        <ArrowUp size={16} />
-                      </button>
-                    </form>
-                  </div>
+                        <span>❯</span>
+                        <input
+                          aria-label="Terminal command"
+                          value={command}
+                          onChange={(e) => setCommand(e.target.value)}
+                          placeholder="Enter a command…"
+                          disabled={computer.controller === "agent"}
+                        />
+                        <button
+                          disabled={busy || !command}
+                          aria-label="Run command"
+                        >
+                          <ArrowUp size={16} />
+                        </button>
+                      </form>
+                    </div>
+                  )
                 ) : (
                   <div className="activity-list">
                     {events

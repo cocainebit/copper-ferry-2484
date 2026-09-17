@@ -33,11 +33,13 @@ async def test_persistent_volume_creation_and_password(monkeypatch, db):
     monkeypatch.setattr(runtime.SandboxManager, "create", AsyncMock(return_value=manager))
     create = AsyncMock(return_value=SimpleNamespace(id="new", close=AsyncMock()))
     monkeypatch.setattr(runtime.Sandbox, "create", create)
-    assert await runtime.create("computer", "durable-password") == "new"
+    assert await runtime.create("computer", "durable-password", pty_token="shell-token") == "new"
     args = create.call_args.kwargs
     assert args["volumes"][0].pvc.create_if_not_exists
     assert args["volumes"][0].pvc.claim_name == "desktop-computer"
     assert args["env"]["VNC_PASSWORD"] == "durable-password"
+    assert args["env"]["PTY_TOKEN"] == "shell-token"
+    assert args["entrypoint"][0:2] == ["/bin/sh", "-c"] and "exec /opt/desktop/start.sh" in args["entrypoint"][2]
 
 
 @pytest.mark.asyncio
@@ -172,11 +174,26 @@ def test_legacy_snapshot_startup_migration_is_narrow(tmp_path):
     script = tmp_path / "start.sh"
     script.write_text("custom setup\nXvfb :0 -screen 0 1440x900x24 -nolisten tcp &\ncustom finish\n")
     entry = runtime.desktop_entrypoint("1920x1080", True)
-    migration = shlex.split(entry[2])[2]
-    migration = migration.replace("/opt/desktop/start.sh", str(script))
+    assert "python3 -c " + shlex.quote(runtime.snapshot_migration()) in entry[2]
+    assert "python3 -c" not in runtime.desktop_entrypoint("1920x1080", False)[2]
+    migration = runtime.snapshot_migration().replace("/opt/desktop/start.sh", str(script))
     exec(migration, {"Path": Path})
     assert "${DESKTOP_RESOLUTION:-1440x900}x24" in script.read_text()
     assert script.read_text().startswith("custom setup\n")
     first = script.read_text()
     exec(migration, {"Path": Path})
     assert script.read_text() == first
+
+
+def test_entrypoint_ships_current_guest_pty_server(tmp_path):
+    import base64
+    import re
+
+    entry = runtime.desktop_entrypoint("1440x900", True)
+    steps = entry[2].split(" && ")
+    payload = re.match(r"printf %s (\S+) \| base64 -d > /opt/desktop/pty_server.py", steps[0]).group(1)
+    assert base64.b64decode(payload) == runtime.GUEST_PTY_SERVER.read_bytes()
+    assert steps[1] == "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)"
+    assert steps[-1] == "exec /opt/desktop/start.sh"
+    source = runtime.GUEST_PTY_SERVER.read_text()
+    assert 'os.environ.get("PTY_TOKEN"' in source and "process_request=gate" in source

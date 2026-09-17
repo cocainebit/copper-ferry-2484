@@ -12,6 +12,9 @@ def upgrade():
     if "system_snapshot_id" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE computers ADD COLUMN system_snapshot_id VARCHAR"))
+    if "pty_secret" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE computers ADD COLUMN pty_secret TEXT"))
 
     for table in ("desktop_profiles", "desktop_templates"):
         names = {column["name"] for column in inspect(engine).get_columns(table)}
