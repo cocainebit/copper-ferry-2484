@@ -22,7 +22,7 @@ Each workspace can store five templates. Creating a computer from one produces a
 
 All routes start with `/v1` and require an authenticated session. Mutations other than profile PUT require `Idempotency-Key` (8–100 characters).
 
-- `GET/PUT /computers/{id}/profile`: CPU and memory settings.
+- `GET/PUT /computers/{id}/profile`: CPU, memory, resolution and `idle_timeout_minutes` settings. Omitted PUT fields preserve saved values. Idle timeout is 0–1440 minutes, default 15; zero disables idle stopping.
 - `POST /computers/{id}/clone`: `{ "name": "Copy" }`.
 - `POST /computers/{id}/templates`: `{ "name": "Python tools" }`.
 - `GET /workspaces/{id}/templates`: templates with lifecycle state.
@@ -40,3 +40,5 @@ The singleton lifecycle worker runs one feature job at a time and reserves an in
 Database changes are additive tables: `desktop_profiles`, `desktop_templates`, `desktop_feature_jobs`. Include these in backup/RLS/migration policies. System snapshot artifacts require infrastructure backups separate from database and home-volume backups.
 
 Tests exercise authorization, isolation, quotas, durable job transitions and adapter parameters. A real stopped-desktop clone and template launch must also be validated against the deployed OpenSandbox version before enabling these features publicly.
+
+Creation bodies also accept `idle_timeout_minutes`; template consumers inherit it when omitted. Background guest processes do not count as dashboard activity. Always-on disables only idle stopping; metering and balance exhaustion still apply.

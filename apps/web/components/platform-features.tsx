@@ -23,6 +23,7 @@ export function PlatformFeatures({
   const [cpu, setCpu] = useState(2);
   const [memory, setMemory] = useState(4);
   const [resolution, setResolution] = useState("1440x900");
+  const [idleTimeout, setIdleTimeout] = useState(15);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const stopped = computers.filter((c) => c.status === "stopped");
@@ -63,14 +64,18 @@ export function PlatformFeatures({
   useEffect(() => {
     let alive = true;
     if (cid)
-      api<{ cpu: number; memory_gib: number; resolution: string }>(
-        `/computers/${cid}/profile`,
-      )
+      api<{
+        cpu: number;
+        memory_gib: number;
+        resolution: string;
+        idle_timeout_minutes: number;
+      }>(`/computers/${cid}/profile`)
         .then((p) => {
           if (alive) {
             setCpu(p.cpu);
             setMemory(p.memory_gib);
             setResolution(p.resolution || "1440x900");
+            setIdleTimeout(p.idle_timeout_minutes ?? 15);
           }
         })
         .catch((e) => {
@@ -167,6 +172,24 @@ export function PlatformFeatures({
             <option value="1920x1080">1920 × 1080</option>
           </select>
         </label>
+        <label>
+          Idle stop{" "}
+          <select
+            aria-label="Idle stop"
+            value={idleTimeout}
+            disabled={busy || !cid}
+            onChange={(e) => setIdleTimeout(Number(e.target.value))}
+          >
+            <option value={5}>After 5 minutes</option>
+            <option value={15}>After 15 minutes</option>
+            <option value={30}>After 30 minutes</option>
+            <option value={60}>After 1 hour</option>
+            <option value={0}>Always on</option>
+            {![0, 5, 15, 30, 60].includes(idleTimeout) && (
+              <option value={idleTimeout}>After {idleTimeout} minutes</option>
+            )}
+          </select>
+        </label>
         <Button
           disabled={busy || !cid}
           onClick={() =>
@@ -174,6 +197,7 @@ export function PlatformFeatures({
               cpu,
               memory_gib: memory,
               resolution,
+              idle_timeout_minutes: idleTimeout,
             })
           }
         >
@@ -181,7 +205,9 @@ export function PlatformFeatures({
         </Button>
       </div>
       <p className="muted">
-        CPU, memory, and display resolution apply on the next start.
+        CPU, memory, display resolution, and idle stop apply on the next start.
+        Always on keeps background work running without an open dashboard.
+        Runtime charges continue; credit exhaustion still stops the computer.
       </p>
       <label>
         New computer or template name{" "}

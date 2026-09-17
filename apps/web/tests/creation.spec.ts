@@ -23,6 +23,7 @@ test("template creation starts with template resources and waits for copy comple
           cpu: 1,
           memory_gib: 2,
           resolution: "1280x720",
+          idle_timeout_minutes: 0,
         },
         {
           id: "pending-template",
@@ -77,6 +78,7 @@ test("template creation starts with template resources and waits for copy comple
   await expect(dialog.getByLabel("Memory", { exact: true })).toHaveValue("2");
   await expect(dialog.getByLabel("Display resolution")).toHaveValue("1280x720");
   await dialog.getByLabel("Display resolution").selectOption("1920x1080");
+  await expect(dialog.getByLabel("Idle stop")).toHaveValue("0");
   await dialog.getByLabel("Memory", { exact: true }).selectOption("4");
   await dialog.getByLabel("Computer name").fill("From template");
   await dialog.getByRole("button", { name: "Create computer" }).click();
@@ -91,6 +93,7 @@ test("template creation starts with template resources and waits for copy comple
     cpu: 1,
     memory_gib: 4,
     resolution: "1920x1080",
+    idle_timeout_minutes: 0,
   });
   expect(startRequests).toBe(0);
 });

@@ -46,6 +46,7 @@ test("real API workspace, creation, settings, and billing", async ({
   await dialog.getByLabel("CPU", { exact: true }).selectOption("1");
   await dialog.getByLabel("Memory", { exact: true }).selectOption("2");
   await dialog.getByLabel("Display resolution").selectOption("1920x1080");
+  await dialog.getByLabel("Idle stop").selectOption("0");
   await dialog.getByRole("button", { name: "Create computer" }).click();
   await expect(
     page.getByRole("heading", { name: "Your computer is taking a breather." }),
@@ -67,6 +68,8 @@ test("real API workspace, creation, settings, and billing", async ({
   await expect(page.getByLabel("Memory", { exact: true })).toHaveValue("2");
   await expect(page.getByLabel("Display resolution")).toHaveValue("1920x1080");
   await page.getByLabel("Display resolution").selectOption("1280x720");
+  await expect(page.getByLabel("Idle stop")).toHaveValue("0");
+  await page.getByLabel("Idle stop").selectOption("30");
   await page.getByLabel("CPU", { exact: true }).selectOption("1");
   await page.getByLabel("Memory", { exact: true }).selectOption("2");
   await page.getByRole("button", { name: "Save resources" }).click();
@@ -78,6 +81,7 @@ test("real API workspace, creation, settings, and billing", async ({
   await expect(page.getByLabel("CPU", { exact: true })).toHaveValue("1");
   await expect(page.getByLabel("Memory", { exact: true })).toHaveValue("2");
   await expect(page.getByLabel("Display resolution")).toHaveValue("1280x720");
+  await expect(page.getByLabel("Idle stop")).toHaveValue("30");
   await page.getByRole("button", { name: "Billing", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "A little room to grow." }),

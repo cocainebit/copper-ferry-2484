@@ -309,4 +309,33 @@ def test_resolution_upgrade_preserves_legacy_rows(tmp_path, monkeypatch):
             "1440x900",
         )
         assert connection.execute(text("SELECT resolution FROM desktop_templates")).scalar() == "1440x900"
+        assert connection.execute(text("SELECT idle_timeout_minutes FROM desktop_profiles")).scalar() == 15
+        assert connection.execute(text("SELECT idle_timeout_minutes FROM desktop_templates")).scalar() == 15
     engine.dispose()
+
+
+@pytest.mark.parametrize("invalid", [-1, 1441, 1.5, True, "0"])
+def test_invalid_idle_policy_rejected(fc, source, invalid):
+    assert fc.put(f"/v1/computers/{source.id}/profile", json={"idle_timeout_minutes": invalid}).status_code == 422
+
+
+def test_idle_policy_zero_and_partial_update(fc, db, source):
+    endpoint = f"/v1/computers/{source.id}/profile"
+    assert fc.put(endpoint, json={"idle_timeout_minutes": 0}).json()["idle_timeout_minutes"] == 0
+    assert fc.put(endpoint, json={"cpu": 1, "memory_gib": 2}).json()["idle_timeout_minutes"] == 0
+    response = fc.put(endpoint, json={"idle_timeout_minutes": 0}).json()
+    assert (response["cpu"], response["memory_gib"]) == (1, 2)
+    result = fc.post(f"/v1/computers/{source.id}/clone", json={"name": "Always-on copy"}).json()
+    assert db.get(DesktopProfile, result["target_id"]).idle_timeout_minutes == 0
+
+
+@pytest.mark.parametrize("override,expected", [({}, 0), ({"idle_timeout_minutes": 30}, 30)])
+def test_idle_template_inherits_zero(fc, db, override, expected):
+    template = DesktopTemplate(
+        workspace_id="w", name="Always on", status="ready", snapshot_id="snap", idle_timeout_minutes=0
+    )
+    db.add(template)
+    db.commit()
+    result = fc.post(f"/v1/templates/{template.id}/computers", json={"name": "Consumer", **override})
+    assert result.status_code == 202
+    assert db.get(DesktopProfile, result.json()["target_id"]).idle_timeout_minutes == expected

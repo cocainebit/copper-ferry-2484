@@ -74,3 +74,10 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - Existing database rows receive the default through an additive upgrade, tested for repeatability and legacy data preservation. Run upgrade before API/worker restart; production versioned migrations remain open.
 - [Full parity audit](docs/ORGO_PARITY.md) extends the intermediate v1 with OS providers, SDK/CLI/MCP, app integrations, resource addons, richer templates and streaming. These remain requirements of the full objective.
 - Current verification: 159 backend tests, seven browser tests, TypeScript checks and desktop image build pass. Public production readiness remains unproven.
+
+## Configurable idle stop
+
+- Creation and stopped-desktop settings now support idle timeouts, including Always on (zero). API allows integer 0–1440 minutes; default stays 15. Clones/templates inherit the policy and callers can override it.
+- Worker reconciliation tests verify always-on keeps running without dashboard activity, usage continues to be deducted, selected finite timeouts stop inactive desktops and depleted credits still stop always-on desktops. Guest background processes do not reset idle activity; use Always on for them.
+- Optional profile updates now preserve omitted CPU/RAM/display/idle values. Additive database upgrade preserves existing 15-minute defaults and is tested for repeat execution.
+- 172 backend tests and seven browser tests pass; TypeScript and Python lint pass. Local API/worker restarted after migration. A real production-duration unattended-workload soak remains unverified.

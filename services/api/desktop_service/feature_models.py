@@ -13,6 +13,7 @@ class DesktopProfile(Base):
     computer_id: Mapped[str] = mapped_column(ForeignKey("computers.id"), primary_key=True)
     cpu: Mapped[int] = mapped_column(Integer, default=2)
     memory_gib: Mapped[int] = mapped_column(Integer, default=4)
+    idle_timeout_minutes: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
     resolution: Mapped[str] = mapped_column(String(20), default="1440x900", server_default="1440x900")
 
 
@@ -25,6 +26,7 @@ class DesktopTemplate(Base):
     snapshot_id: Mapped[str | None] = mapped_column(String)
     cpu: Mapped[int] = mapped_column(Integer, default=2)
     memory_gib: Mapped[int] = mapped_column(Integer, default=4)
+    idle_timeout_minutes: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
     resolution: Mapped[str] = mapped_column(String(20), default="1440x900", server_default="1440x900")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 

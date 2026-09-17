@@ -21,6 +21,12 @@ def upgrade():
                     text(f"ALTER TABLE {table} ADD COLUMN resolution VARCHAR(20) NOT NULL DEFAULT '1440x900'")
                 )
 
+        if "idle_timeout_minutes" not in names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN idle_timeout_minutes INTEGER NOT NULL DEFAULT 15")
+                )
+
     if engine.dialect.name == "postgresql":
         with engine.begin() as connection:
             for name in Base.metadata.tables:

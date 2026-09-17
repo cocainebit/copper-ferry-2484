@@ -22,9 +22,10 @@ log = logging.getLogger(__name__)
 
 
 class ProfileBody(BaseModel):
-    cpu: Literal[1, 2] = 2
-    memory_gib: Literal[2, 4] = 4
+    cpu: Literal[1, 2] | None = None
+    memory_gib: Literal[2, 4] | None = None
     resolution: Resolution | None = None
+    idle_timeout_minutes: int | None = Field(default=None, ge=0, le=1440, strict=True)
 
 
 class Named(BaseModel):
@@ -35,6 +36,7 @@ class TemplateCreate(Named):
     cpu: Literal[1, 2] | None = None
     memory_gib: Literal[2, 4] | None = None
     resolution: Resolution | None = None
+    idle_timeout_minutes: int | None = Field(default=None, ge=0, le=1440, strict=True)
 
 
 def owned_computer(db, cid, user):
@@ -65,6 +67,7 @@ def template_public(t):
         "cpu": t.cpu,
         "memory_gib": t.memory_gib,
         "resolution": t.resolution,
+        "idle_timeout_minutes": t.idle_timeout_minutes,
         "includes_home": False,
     }
 
@@ -99,6 +102,7 @@ def profile(cid: str, user=Depends(identity), db=Depends(database)):
         "cpu": p.cpu if p else 2,
         "memory_gib": p.memory_gib if p else 4,
         "resolution": p.resolution if p else "1440x900",
+        "idle_timeout_minutes": p.idle_timeout_minutes if p else 15,
         "options": {"cpu": [1, 2], "memory_gib": [2, 4], "resolution": RESOLUTIONS},
         "storage_quota_enforced": False,
     }
@@ -109,12 +113,22 @@ def update_profile(cid: str, body: ProfileBody, user=Depends(identity), db=Depen
     c = owned_computer(db, cid, user)
     stopped(db, c)
     p = db.get(DesktopProfile, cid) or DesktopProfile(computer_id=cid)
-    p.cpu, p.memory_gib = body.cpu, body.memory_gib
+    p.cpu = body.cpu if body.cpu is not None else p.cpu or 2
+    p.memory_gib = body.memory_gib if body.memory_gib is not None else p.memory_gib or 4
     p.resolution = body.resolution or p.resolution or "1440x900"
+    if body.idle_timeout_minutes is not None:
+        p.idle_timeout_minutes = body.idle_timeout_minutes
+    elif p.idle_timeout_minutes is None:
+        p.idle_timeout_minutes = 15
     db.add(p)
     event(db, cid, f"Resources set to {p.cpu} CPU and {p.memory_gib} GiB RAM for the next start")
     db.commit()
-    return {"cpu": p.cpu, "memory_gib": p.memory_gib, "resolution": p.resolution}
+    return {
+        "cpu": p.cpu,
+        "memory_gib": p.memory_gib,
+        "resolution": p.resolution,
+        "idle_timeout_minutes": p.idle_timeout_minutes,
+    }
 
 
 @router.get("/workspaces/{wid}/templates")
@@ -162,6 +176,7 @@ def clone(
             cpu=p.cpu if p else 2,
             memory_gib=p.memory_gib if p else 4,
             resolution=p.resolution if p else "1440x900",
+            idle_timeout_minutes=p.idle_timeout_minutes if p else 15,
         )
     )
     c.status = "customizing"
@@ -204,6 +219,7 @@ def save_template(
         cpu=p.cpu if p else 2,
         memory_gib=p.memory_gib if p else 4,
         resolution=p.resolution if p else "1440x900",
+        idle_timeout_minutes=p.idle_timeout_minutes if p else 15,
     )
     db.add(t)
     db.flush()
@@ -241,6 +257,9 @@ def from_template(
             cpu=body.cpu or t.cpu,
             memory_gib=body.memory_gib or t.memory_gib,
             resolution=body.resolution or t.resolution,
+            idle_timeout_minutes=body.idle_timeout_minutes
+            if body.idle_timeout_minutes is not None
+            else t.idle_timeout_minutes,
         )
     )
     j = FeatureJob(

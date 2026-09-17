@@ -29,6 +29,12 @@ The dashboard terminal has administrator privileges inside your computer. The gr
 
 Workspace owners can select **1 or 2 CPU cores** and **2 or 4 GiB RAM**. Defaults are 2 CPU / 4 GiB. Stop the desktop first; the worker passes the saved allocation to OpenSandbox on the next start. Larger allocations and storage resizing are not available yet. Choose **1280×720, 1440×900 (default), or 1920×1080** during creation or in stopped-computer settings. Changes apply next start. Clones/templates inherit resolution; template consumers can override it. Agent coordinates match the selected dimensions. Legacy platform startup scripts are upgraded narrowly; custom scripts must honor `DESKTOP_RESOLUTION` or startup fails the geometry check.
 
+## Idle stop and background work
+
+Choose an idle-stop timeout during creation or in stopped-computer settings. The default is 15 minutes; the dashboard offers 5, 15, 30, 60 minutes or **Always on**. The API accepts integer minutes from 0 through 1440; zero disables idle stopping. Clones and templates preserve this policy, and template consumers can override it.
+
+Inactivity means no qualifying dashboard/control activity and no queued or running built-in agent task. Guest background processes do not reset that timer. Use Always on for unattended scripts or services. You can close the dashboard; compute charges continue while the computer runs. Credit exhaustion, manual stop, runtime failures and maintenance can still stop it. This setting is not an uptime guarantee.
+
 ## Clone a complete desktop
 
 Start and stop the source at least once so its system snapshot is saved. In Settings → desktop customization, select a stopped computer, enter a new name and choose **Clone computer**. The source stays unavailable during the operation. Follow progress under recent operations; the clone is ready when it becomes stopped.

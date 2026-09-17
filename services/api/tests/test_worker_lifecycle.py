@@ -231,3 +231,57 @@ async def test_superseded_inflight_tool_cannot_overwrite_new_worker_state(db, mo
     assert saved.lease == "replacement-worker-lease"
     assert saved.messages == replacement_messages
     assert saved.pending_tools == replacement_tools
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "timeout,age,expected", [(0, 120, "running"), (15, 16, "stopping"), (60, 30, "running"), (5, 6, "stopping")]
+)
+async def test_idle_policy_without_dashboard(db, monkeypatch, timeout, age, expected):
+    from desktop_service.feature_models import DesktopProfile
+
+    monkeypatch.setattr(worker, "Session", models.Session)
+    monkeypatch.setattr(worker.runtime, "keep_alive", AsyncMock())
+    c = models.Computer(
+        workspace_id="w",
+        request_id="idle-test",
+        name="Background work",
+        status="running",
+        sandbox_id="sandbox",
+        last_active=models.now() - timedelta(minutes=age),
+        metered_at=models.now() - timedelta(minutes=2),
+    )
+    db.add(c)
+    db.flush()
+    db.add(DesktopProfile(computer_id=c.id, idle_timeout_minutes=timeout))
+    db.commit()
+    before = db.get(models.Workspace, "w").included
+    await worker.reconcile()
+    db.expire_all()
+    assert db.get(models.Computer, c.id).status == expected
+    assert db.get(models.Workspace, "w").included == before - 2
+
+
+@pytest.mark.asyncio
+async def test_always_on_still_stops_when_balance_exhausted(db, monkeypatch):
+    from desktop_service.feature_models import DesktopProfile
+
+    monkeypatch.setattr(worker, "Session", models.Session)
+    monkeypatch.setattr(worker.runtime, "keep_alive", AsyncMock())
+    db.get(models.Workspace, "w").included = 0
+    c = models.Computer(
+        workspace_id="w",
+        request_id="no-credit",
+        name="Always on",
+        status="running",
+        sandbox_id="sandbox",
+        metered_at=models.now(),
+        last_active=models.now(),
+    )
+    db.add(c)
+    db.flush()
+    db.add(DesktopProfile(computer_id=c.id, idle_timeout_minutes=0))
+    db.commit()
+    await worker.reconcile()
+    db.expire_all()
+    assert db.get(models.Computer, c.id).status == "stopping"

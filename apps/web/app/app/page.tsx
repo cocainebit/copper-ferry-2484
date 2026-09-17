@@ -51,6 +51,7 @@ type CreationTemplate = {
   cpu: number;
   memory_gib: number;
   resolution: string;
+  idle_timeout_minutes: number;
 };
 type View = "computers" | "settings" | "billing";
 export default function Dashboard() {
@@ -69,6 +70,7 @@ export default function Dashboard() {
   const [createCpu, setCreateCpu] = useState(2);
   const [createMemory, setCreateMemory] = useState(4);
   const [createResolution, setCreateResolution] = useState("1440x900");
+  const [createIdleTimeout, setCreateIdleTimeout] = useState(15);
   const [createTemplate, setCreateTemplate] = useState("");
   const [creationTemplates, setCreationTemplates] = useState<
     CreationTemplate[]
@@ -102,6 +104,7 @@ export default function Dashboard() {
     setCreateCpu(2);
     setCreateMemory(4);
     setCreateResolution("1440x900");
+    setCreateIdleTimeout(15);
     setCreationError("");
     setTemplatesError("");
     if (workspace?.role !== "owner") {
@@ -264,6 +267,7 @@ export default function Dashboard() {
       cpu: createCpu,
       memory_gib: createMemory,
       resolution: createResolution,
+      idle_timeout_minutes: createIdleTimeout,
     };
     try {
       const result = createTemplate
@@ -1069,6 +1073,7 @@ export default function Dashboard() {
                     setCreateCpu(template?.cpu || 2);
                     setCreateMemory(template?.memory_gib || 4);
                     setCreateResolution(template?.resolution || "1440x900");
+                    setCreateIdleTimeout(template?.idle_timeout_minutes ?? 15);
                   }}
                 >
                   <option value="">Clean Linux desktop</option>
@@ -1132,6 +1137,31 @@ export default function Dashboard() {
                   <option value="1920x1080">1920 × 1080</option>
                 </select>
               </label>
+              <label>
+                Idle stop
+                <select
+                  aria-label="Idle stop"
+                  value={createIdleTimeout}
+                  disabled={creating}
+                  onChange={(e) => setCreateIdleTimeout(Number(e.target.value))}
+                >
+                  <option value={5}>After 5 minutes</option>
+                  <option value={15}>After 15 minutes</option>
+                  <option value={30}>After 30 minutes</option>
+                  <option value={60}>After 1 hour</option>
+                  <option value={0}>Always on</option>
+                  {![0, 5, 15, 30, 60].includes(createIdleTimeout) && (
+                    <option value={createIdleTimeout}>
+                      After {createIdleTimeout} minutes
+                    </option>
+                  )}
+                </select>
+              </label>
+              <p className="muted creation-note">
+                Always on keeps background work running without an open
+                dashboard. Runtime charges continue; the computer still stops
+                when credits run out.
+              </p>
               <p className="muted creation-note">
                 {createTemplate
                   ? "Templates copy installed software and system settings into a fresh home directory. Start the computer once its copy is ready."

@@ -82,6 +82,7 @@ class ComputerCreate(BaseModel):
     cpu: Literal[1, 2] = 2
     memory_gib: Literal[2, 4] = 4
     resolution: Resolution = "1440x900"
+    idle_timeout_minutes: int = Field(default=15, ge=0, le=1440, strict=True)
 
 
 class KeyBody(BaseModel):
@@ -303,7 +304,15 @@ def create_computer(
     c = Computer(workspace_id=wid, name=body.name.strip(), request_id=idempotency_key)
     db.add(c)
     db.flush()
-    db.add(DesktopProfile(computer_id=c.id, cpu=body.cpu, memory_gib=body.memory_gib, resolution=body.resolution))
+    db.add(
+        DesktopProfile(
+            computer_id=c.id,
+            cpu=body.cpu,
+            memory_gib=body.memory_gib,
+            resolution=body.resolution,
+            idle_timeout_minutes=body.idle_timeout_minutes,
+        )
+    )
     db.commit()
     return public(c)
 

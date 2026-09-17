@@ -316,8 +316,21 @@ async def reconcile():
                     active = db.scalar(
                         select(Run).where(Run.computer_id == c.id, Run.status.in_(["running", "queued"]))
                     )
-                    if balance(db, w) <= 0 or (not active and now() - c.last_active > timedelta(minutes=15)):
+                    profile = db.get(DesktopProfile, c.id)
+                    idle_minutes = profile.idle_timeout_minutes if profile else 15
+                    idle_expired = (
+                        idle_minutes > 0 and not active and now() - c.last_active > timedelta(minutes=idle_minutes)
+                    )
+                    if balance(db, w) <= 0:
                         c.status = "stopping"
+                    elif c.status == "running" and idle_expired:
+                        c.status = "stopping"
+                        event(
+                            db,
+                            c.id,
+                            f"Computer stopping after {idle_minutes} minutes without dashboard or agent activity.",
+                            "info",
+                        )
                 elif c.status in ("stopping", "deleting"):
                     leased = db.scalar(select(Run).where(Run.computer_id == c.id, Run.lease.is_not(None)))
                     if leased:
