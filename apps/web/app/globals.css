@@ -2185,3 +2185,76 @@ button.file-row:hover {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.registry-heading {
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #6c6c74;
+  margin: 18px 0 8px;
+}
+.registry-definition {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #1f1f22;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.registry-definition > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.registry-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  border: 1px solid #303034;
+  border-radius: 999px;
+  padding: 3px 9px;
+  color: #a5a5ad;
+  background: transparent;
+}
+.registry-version.ready {
+  border-color: #2f4a3a;
+  color: #a5b8ab;
+}
+.registry-version.failed {
+  border-color: #5a3434;
+  color: #d99a9a;
+}
+.registry-version.selected {
+  background: #1b1b1e;
+}
+.registry-detail {
+  margin-top: 12px;
+  border: 1px solid #242426;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+.registry-detail .app-log {
+  max-height: 260px;
+}
+.registry-form {
+  display: grid;
+  gap: 8px;
+}
+.registry-form textarea {
+  width: 100%;
+  background: #0b0b0d;
+  border: 1px solid #2a2a2e;
+  border-radius: 6px;
+  color: #c9d1c9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 8px;
+  resize: vertical;
+}
+.registry-form .button {
+  width: fit-content;
+}

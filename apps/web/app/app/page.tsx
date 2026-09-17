@@ -50,9 +50,12 @@ import { TerminalPanel } from "@/components/terminal";
 import { ApiKeys } from "@/components/api-keys";
 import { Secrets } from "@/components/secrets";
 import { AppsPanel } from "@/components/apps";
+import { TemplateRegistry } from "@/components/template-registry";
 type CreationTemplate = {
   id: string;
   name: string;
+  version?: number | null;
+  requires_secrets?: string[];
   status: string;
   cpu: number;
   memory_gib: number;
@@ -1019,6 +1022,7 @@ export default function Dashboard() {
                   computers={computers}
                   onRefresh={refresh}
                 />
+                <TemplateRegistry workspaceId={wid} />
                 <Secrets workspaceId={wid} />
                 <ApiKeys workspaceId={wid} />
               </>
@@ -1248,6 +1252,10 @@ export default function Dashboard() {
                   {creationTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
+                      {t.version ? ` v${t.version}` : ""}
+                      {t.requires_secrets?.length
+                        ? ` (needs ${t.requires_secrets.join(", ")})`
+                        : ""}
                     </option>
                   ))}
                 </select>
