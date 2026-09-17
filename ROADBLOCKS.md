@@ -86,3 +86,8 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 
 - Added owner/controller-only upload into Home at `POST /v1/computers/{id}/upload`, with a 20 MiB limit, base64 validation, safe path enforcement and dashboard file picker. The desktop helper creates missing parent directories and refuses directory targets.
 - 174 backend tests and frontend typecheck pass. Streaming multipart uploads, progress/resume, delete/export endpoints and production storage quotas remain open parity work.
+
+## File deletion
+
+- Added controller-only `POST /v1/computers/{id}/delete-file` and a file-browser delete action. The runtime refuses Home itself, directories, missing paths and paths that resolve outside Home.
+- 180 backend tests and frontend typecheck pass. Binary streaming, resumable transfers, bulk operations and production disk quotas remain open.
