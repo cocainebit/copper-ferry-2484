@@ -26,6 +26,9 @@ def upgrade():
                 connection.execute(
                     text(f"ALTER TABLE {table} ADD COLUMN idle_timeout_minutes INTEGER NOT NULL DEFAULT 15")
                 )
+        if "storage_gib" not in names:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN storage_gib INTEGER NOT NULL DEFAULT 20"))
 
     if engine.dialect.name == "postgresql":
         with engine.begin() as connection:

@@ -81,6 +81,7 @@ class ComputerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80, pattern=r"\S")
     cpu: Literal[1, 2] = 2
     memory_gib: Literal[2, 4] = 4
+    storage_gib: Literal[20, 50, 100] = 20
     resolution: Resolution = "1440x900"
     idle_timeout_minutes: int = Field(default=15, ge=0, le=1440, strict=True)
 
@@ -149,8 +150,9 @@ def config():
             key: {"name": key.replace("-", " ").title(), "minutes": minutes}
             for key, minutes in s.trial_services.items()
         },
-        "price": 29,
-        "included_hours": 100,
+        "minute_micro_usdc": s.cubicle_minute_micro_usdc,
+        "hour_usdc": round(s.cubicle_minute_micro_usdc * 60 / 1_000_000, 2),
+        "storage_quota_enforced": s.storage_quota_enforced,
         "trial_hours": s.trial_credits // 60,
         "trial_days": 7,
     }
@@ -269,13 +271,21 @@ def delete_credential(wid: str, user=Depends(identity), db=Depends(database)):
 @app.get("/v1/workspaces/{wid}/computers")
 def computers(wid: str, user=Depends(identity), db=Depends(database)):
     member(db, wid, user)
+    rows = db.execute(
+        select(Computer, DesktopProfile)
+        .outerjoin(DesktopProfile, DesktopProfile.computer_id == Computer.id)
+        .where(Computer.workspace_id == wid, Computer.status != "deleted")
+        .order_by(Computer.created_at)
+    ).all()
     return [
-        public(c)
-        for c in db.scalars(
-            select(Computer)
-            .where(Computer.workspace_id == wid, Computer.status != "deleted")
-            .order_by(Computer.created_at)
-        )
+        {
+            **public(c),
+            "cpu": p.cpu if p else 2,
+            "memory_gib": p.memory_gib if p else 4,
+            "storage_gib": p.storage_gib if p else 20,
+            "resolution": p.resolution if p else "1440x900",
+        }
+        for c, p in rows
     ]
 
 
@@ -309,6 +319,7 @@ def create_computer(
             computer_id=c.id,
             cpu=body.cpu,
             memory_gib=body.memory_gib,
+            storage_gib=body.storage_gib,
             resolution=body.resolution,
             idle_timeout_minutes=body.idle_timeout_minutes,
         )

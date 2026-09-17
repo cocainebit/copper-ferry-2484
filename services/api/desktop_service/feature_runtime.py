@@ -25,8 +25,18 @@ def resolution_for(cid):
         return profile.resolution if profile else "1440x900"
 
 
-async def materialize(source_snapshot, source_id=None, target_id=None):
-    """Copy a stopped system and optionally its home to independent storage."""
+def storage_for(cid):
+    with database_models.Session() as db:
+        profile = db.get(DesktopProfile, cid)
+        return profile.storage_gib if profile else 20
+
+
+async def materialize(source_snapshot, source_id=None, target_id=None, storage_gib=20):
+    """Copy a stopped system and optionally its home to independent storage.
+
+    The copy is bounded by the target's storage tier. On the Docker runtime that bound is the only
+    place the tier takes effect; Kubernetes additionally sizes the claim itself (see runtime.create).
+    """
     volumes = []
     if source_id:
         volumes.append(
@@ -59,13 +69,13 @@ async def materialize(source_snapshot, source_id=None, target_id=None):
             command = "find /mnt/target -mindepth 1 -xdev -delete"
             if source_id:
                 command = (
-                    "test $(du -skx /mnt/source | cut -f1) -le 20971520 && "
+                    f"test $(du -skx /mnt/source | cut -f1) -le {int(storage_gib) * 1024 * 1024} && "
                     + command
                     + " && cp -a -- /mnt/source/. /mnt/target/"
                 )
             result = await sb.commands.run(command, opts=RunCommandOpts(timeout=timedelta(minutes=10)))
             if result.error:
-                raise RuntimeError("Home copy failed or exceeded the 20 GiB copy limit")
+                raise RuntimeError(f"Home copy failed or exceeded the {storage_gib} GiB storage tier")
         return await asyncio.wait_for(runtime.save_system(sb.id), timeout=150)
     finally:
         try:

@@ -91,3 +91,9 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 
 - Added controller-only `POST /v1/computers/{id}/delete-file` and a file-browser delete action. The runtime refuses Home itself, directories, missing paths and paths that resolve outside Home.
 - 180 backend tests and frontend typecheck pass. Binary streaming, resumable transfers, bulk operations and production disk quotas remain open.
+
+## Storage tiers
+
+- Profiles, templates and creation bodies accept `storage_gib` in {20, 50, 100}; clones and templates inherit it and template consumers can override it. The additive upgrade adds the column with default 20.
+- Enforcement is runtime-dependent and reported truthfully: `storage_quota_enforced` in the profile response comes from `STORAGE_QUOTA_ENFORCED` (default false). Docker named volumes ignore the requested size, so locally the tier only bounds the clone copy (source home must fit the target tier) and is shown against measured usage. OpenSandbox's Kubernetes runtime sizes the claim from the same value. Hard quota acceptance under M2 therefore still requires the Kubernetes runtime or a filesystem quota on the Docker host.
+- `/v1/config` now advertises Cubicle's per-minute USDC price instead of the retired Stripe plan.

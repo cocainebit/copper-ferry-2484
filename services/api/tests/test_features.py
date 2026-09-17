@@ -68,7 +68,7 @@ def test_clone_idempotency_and_independent_resources(fc, db, source, monkeypatch
     assert target.system_snapshot_id == "independent-snapshot"
     assert source.system_snapshot_id == "saved-source"
     assert feature_runtime.resource_for(target.id) == {"cpu": "1", "memory": "2Gi"}
-    materialize.assert_awaited_once_with("saved-source", source_id=source.id, target_id=target.id)
+    materialize.assert_awaited_once_with("saved-source", source_id=source.id, target_id=target.id, storage_gib=20)
 
 
 def test_failed_clone_preserves_source_and_consumes_quota(fc, db, source, monkeypatch):
@@ -98,7 +98,7 @@ def test_template_omits_home_and_instantiation_is_independent(fc, db, source, mo
     db.expire_all()
     template = db.get(DesktopTemplate, result["template_id"])
     assert template.status == "ready"
-    materialize.assert_awaited_with("saved-source", source_id=None, target_id=None)
+    materialize.assert_awaited_with("saved-source", source_id=None, target_id=None, storage_gib=20)
     listed = fc.get("/v1/workspaces/w/templates").json()
     assert listed[0]["includes_home"] is False and "snapshot_id" not in listed[0]
     created = fc.post(
@@ -112,7 +112,7 @@ def test_template_omits_home_and_instantiation_is_independent(fc, db, source, mo
     target = db.get(Computer, created.json()["target_id"])
     assert target.system_snapshot_id == "consumer-own-snapshot"
     assert template.snapshot_id == "template-own-snapshot"
-    materialize.assert_awaited_with("template-own-snapshot", source_id=None, target_id=target.id)
+    materialize.assert_awaited_with("template-own-snapshot", source_id=None, target_id=target.id, storage_gib=20)
 
 
 def test_template_cross_workspace_and_quota(fc, db, source):
@@ -339,3 +339,53 @@ def test_idle_template_inherits_zero(fc, db, override, expected):
     result = fc.post(f"/v1/templates/{template.id}/computers", json={"name": "Consumer", **override})
     assert result.status_code == 202
     assert db.get(DesktopProfile, result.json()["target_id"]).idle_timeout_minutes == expected
+
+
+def test_storage_tier_validation_inheritance_and_copy_bound(fc, db, source, monkeypatch):
+    endpoint = f"/v1/computers/{source.id}/profile"
+    assert fc.get(endpoint).json()["storage_gib"] == 20
+    assert fc.put(endpoint, json={"storage_gib": 30}).status_code == 422
+    assert fc.put(endpoint, json={"storage_gib": 50}).json()["storage_gib"] == 50
+    assert fc.put(endpoint, json={"cpu": 1}).json()["storage_gib"] == 50
+    assert feature_runtime.storage_for(source.id) == 50
+    materialize = AsyncMock(return_value="copied")
+    monkeypatch.setattr(feature_runtime, "materialize", materialize)
+    result = fc.post(f"/v1/computers/{source.id}/clone", json={"name": "Copy"}).json()
+    result_clone_target = result["target_id"]
+    assert db.get(DesktopProfile, result_clone_target).storage_gib == 50
+    asyncio.run(features.process_one())
+    assert materialize.call_args.kwargs["storage_gib"] == 50
+    source.status = "stopped"
+    db.commit()
+    result = fc.post(
+        f"/v1/computers/{source.id}/templates", json={"name": "Big"}, headers={"Idempotency-Key": "storage-template"}
+    ).json()
+    template = db.get(DesktopTemplate, result["template_id"])
+    assert template.storage_gib == 50
+    template.status, template.snapshot_id = "ready", "snapshot"
+    # Free a saved-computer slot so the consumer can be created.
+    db.get(Computer, result_clone_target).status = "deleted"
+    db.commit()
+    consumer = fc.post(
+        f"/v1/templates/{template.id}/computers",
+        json={"name": "From template", "storage_gib": 100},
+        headers={"Idempotency-Key": "storage-consumer"},
+    ).json()
+    assert db.get(DesktopProfile, consumer["target_id"]).storage_gib == 100
+
+
+def test_copy_bound_follows_storage_tier(monkeypatch):
+    helper = type(
+        "Helper",
+        (),
+        {
+            "id": "helper",
+            "commands": type("Commands", (), {"run": AsyncMock(return_value=type("Result", (), {"error": None})())})(),
+            "kill": AsyncMock(),
+            "close": AsyncMock(),
+        },
+    )()
+    monkeypatch.setattr(feature_runtime.Sandbox, "create", AsyncMock(return_value=helper))
+    monkeypatch.setattr(feature_runtime.runtime, "save_system", AsyncMock(return_value="snap"))
+    asyncio.run(feature_runtime.materialize("old", "source", "target", storage_gib=100))
+    assert str(100 * 1024 * 1024) in helper.commands.run.call_args.args[0]

@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from . import db as models
 from . import feature_runtime, runtime
+from .config import settings
 from .db import Computer, Run, Workspace, database, event, now
 from .display import RESOLUTIONS, Resolution
 from .entitlements import balance
@@ -24,6 +25,7 @@ log = logging.getLogger(__name__)
 class ProfileBody(BaseModel):
     cpu: Literal[1, 2] | None = None
     memory_gib: Literal[2, 4] | None = None
+    storage_gib: Literal[20, 50, 100] | None = None
     resolution: Resolution | None = None
     idle_timeout_minutes: int | None = Field(default=None, ge=0, le=1440, strict=True)
 
@@ -35,6 +37,7 @@ class Named(BaseModel):
 class TemplateCreate(Named):
     cpu: Literal[1, 2] | None = None
     memory_gib: Literal[2, 4] | None = None
+    storage_gib: Literal[20, 50, 100] | None = None
     resolution: Resolution | None = None
     idle_timeout_minutes: int | None = Field(default=None, ge=0, le=1440, strict=True)
 
@@ -66,6 +69,7 @@ def template_public(t):
         "status": t.status,
         "cpu": t.cpu,
         "memory_gib": t.memory_gib,
+        "storage_gib": t.storage_gib,
         "resolution": t.resolution,
         "idle_timeout_minutes": t.idle_timeout_minutes,
         "includes_home": False,
@@ -101,10 +105,12 @@ def profile(cid: str, user=Depends(identity), db=Depends(database)):
     return {
         "cpu": p.cpu if p else 2,
         "memory_gib": p.memory_gib if p else 4,
+        "storage_gib": p.storage_gib if p else 20,
         "resolution": p.resolution if p else "1440x900",
         "idle_timeout_minutes": p.idle_timeout_minutes if p else 15,
-        "options": {"cpu": [1, 2], "memory_gib": [2, 4], "resolution": RESOLUTIONS},
-        "storage_quota_enforced": False,
+        "options": {"cpu": [1, 2], "memory_gib": [2, 4], "storage_gib": [20, 50, 100], "resolution": RESOLUTIONS},
+        # Docker named volumes ignore the requested size; only the copy bound applies there.
+        "storage_quota_enforced": settings().storage_quota_enforced,
     }
 
 
@@ -115,6 +121,7 @@ def update_profile(cid: str, body: ProfileBody, user=Depends(identity), db=Depen
     p = db.get(DesktopProfile, cid) or DesktopProfile(computer_id=cid)
     p.cpu = body.cpu if body.cpu is not None else p.cpu or 2
     p.memory_gib = body.memory_gib if body.memory_gib is not None else p.memory_gib or 4
+    p.storage_gib = body.storage_gib if body.storage_gib is not None else p.storage_gib or 20
     p.resolution = body.resolution or p.resolution or "1440x900"
     if body.idle_timeout_minutes is not None:
         p.idle_timeout_minutes = body.idle_timeout_minutes
@@ -126,6 +133,7 @@ def update_profile(cid: str, body: ProfileBody, user=Depends(identity), db=Depen
     return {
         "cpu": p.cpu,
         "memory_gib": p.memory_gib,
+        "storage_gib": p.storage_gib,
         "resolution": p.resolution,
         "idle_timeout_minutes": p.idle_timeout_minutes,
     }
@@ -175,6 +183,7 @@ def clone(
             computer_id=target.id,
             cpu=p.cpu if p else 2,
             memory_gib=p.memory_gib if p else 4,
+            storage_gib=p.storage_gib if p else 20,
             resolution=p.resolution if p else "1440x900",
             idle_timeout_minutes=p.idle_timeout_minutes if p else 15,
         )
@@ -218,6 +227,7 @@ def save_template(
         name=body.name.strip(),
         cpu=p.cpu if p else 2,
         memory_gib=p.memory_gib if p else 4,
+        storage_gib=p.storage_gib if p else 20,
         resolution=p.resolution if p else "1440x900",
         idle_timeout_minutes=p.idle_timeout_minutes if p else 15,
     )
@@ -256,6 +266,7 @@ def from_template(
             computer_id=target.id,
             cpu=body.cpu or t.cpu,
             memory_gib=body.memory_gib or t.memory_gib,
+            storage_gib=body.storage_gib if body.storage_gib is not None else t.storage_gib,
             resolution=body.resolution or t.resolution,
             idle_timeout_minutes=body.idle_timeout_minutes
             if body.idle_timeout_minutes is not None
@@ -347,10 +358,12 @@ async def process_one():
                     await runtime.delete_system(template.snapshot_id)
                 template.snapshot_id, template.status = None, "deleted"
             else:
+                target_profile = db.get(DesktopProfile, j.target_id) if j.target_id else None
                 snapshot = await feature_runtime.materialize(
                     source.system_snapshot_id if source else template.snapshot_id,
                     source_id=source.id if j.kind == "clone" else None,
                     target_id=j.target_id,
+                    storage_gib=target_profile.storage_gib if target_profile else 20,
                 )
                 if j.target_id:
                     target = db.get(Computer, j.target_id)

@@ -22,6 +22,8 @@ export function PlatformFeatures({
   const [name, setName] = useState("");
   const [cpu, setCpu] = useState(2);
   const [memory, setMemory] = useState(4);
+  const [storage, setStorage] = useState(20);
+  const [quotaEnforced, setQuotaEnforced] = useState(false);
   const [resolution, setResolution] = useState("1440x900");
   const [idleTimeout, setIdleTimeout] = useState(15);
   const [busy, setBusy] = useState(false);
@@ -67,6 +69,8 @@ export function PlatformFeatures({
       api<{
         cpu: number;
         memory_gib: number;
+        storage_gib: number;
+        storage_quota_enforced: boolean;
         resolution: string;
         idle_timeout_minutes: number;
       }>(`/computers/${cid}/profile`)
@@ -74,6 +78,8 @@ export function PlatformFeatures({
           if (alive) {
             setCpu(p.cpu);
             setMemory(p.memory_gib);
+            setStorage(p.storage_gib || 20);
+            setQuotaEnforced(!!p.storage_quota_enforced);
             setResolution(p.resolution || "1440x900");
             setIdleTimeout(p.idle_timeout_minutes ?? 15);
           }
@@ -160,6 +166,19 @@ export function PlatformFeatures({
           </select>
         </label>
         <label>
+          Storage{" "}
+          <select
+            aria-label="Storage"
+            value={storage}
+            disabled={busy || !cid}
+            onChange={(e) => setStorage(Number(e.target.value))}
+          >
+            <option value={20}>20 GiB</option>
+            <option value={50}>50 GiB</option>
+            <option value={100}>100 GiB</option>
+          </select>
+        </label>
+        <label>
           Display resolution{" "}
           <select
             aria-label="Display resolution"
@@ -196,6 +215,7 @@ export function PlatformFeatures({
             act(`/computers/${cid}/profile`, "PUT", {
               cpu,
               memory_gib: memory,
+              storage_gib: storage,
               resolution,
               idle_timeout_minutes: idleTimeout,
             })
@@ -205,7 +225,11 @@ export function PlatformFeatures({
         </Button>
       </div>
       <p className="muted">
-        CPU, memory, display resolution, and idle stop apply on the next start.
+        CPU, memory, storage, display resolution, and idle stop apply on the
+        next start.{" "}
+        {quotaEnforced
+          ? "The storage tier is a hard limit on this runtime."
+          : "On this runtime the storage tier bounds clone copies and is shown against usage; it is not yet a hard disk limit."}
         Always on keeps background work running without an open dashboard.
         Runtime charges continue; credit exhaustion still stops the computer.
       </p>

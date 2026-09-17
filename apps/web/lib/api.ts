@@ -52,6 +52,10 @@ export type Computer = {
   controller: string;
   error: string | null;
   workspace_id: string;
+  cpu?: number;
+  memory_gib?: number;
+  storage_gib?: number;
+  resolution?: string;
 };
 export type Workspace = {
   id: string;

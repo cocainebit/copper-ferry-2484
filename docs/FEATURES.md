@@ -4,7 +4,9 @@ Workspace owners can customize stopped computers in the dashboard. Team members 
 
 ## Resources
 
-Choose 1 or 2 CPU cores and 2 or 4 GiB RAM. Defaults remain 2 CPU / 4 GiB. These are passed to OpenSandbox on the next start; changing a running computer is rejected. These choices remain within the existing plan ceiling. Storage quotas are not enforced by this feature; the clone operation rejects source homes larger than 20 GiB as a copy safeguard.
+Choose 1 or 2 CPU cores, 2 or 4 GiB RAM and a 20, 50 or 100 GiB home storage tier. Defaults remain 2 CPU / 4 GiB / 20 GiB. These are passed to OpenSandbox on the next start; changing a running computer is rejected. These choices remain within the existing plan ceiling.
+
+The storage tier is honest about what it enforces. `GET /computers/{id}/profile` reports `storage_quota_enforced`. On the Docker runtime (the local stack) named volumes ignore the requested size, so the tier only bounds clone copies (a clone refuses a source home larger than the target's tier) and is shown against measured usage. On the OpenSandbox Kubernetes runtime the same value sizes the home claim itself; operators set `STORAGE_QUOTA_ENFORCED=true` there so the dashboard stops describing the tier as advisory.
 
 ## Full clones
 
@@ -22,14 +24,15 @@ Each workspace can store five templates. Creating a computer from one produces a
 
 All routes start with `/v1` and require an authenticated session. Mutations other than profile PUT require `Idempotency-Key` (8–100 characters).
 
-- `GET/PUT /computers/{id}/profile`: CPU, memory, resolution and `idle_timeout_minutes` settings. Omitted PUT fields preserve saved values. Idle timeout is 0–1440 minutes, default 15; zero disables idle stopping.
+- `GET/PUT /computers/{id}/profile`: CPU, memory, `storage_gib` (20/50/100), resolution and `idle_timeout_minutes` settings. Omitted PUT fields preserve saved values. Idle timeout is 0–1440 minutes, default 15; zero disables idle stopping.
 - `POST /computers/{id}/upload`: upload one base64-encoded file into Home (maximum 20 MiB; owner/controller only).
 - `POST /computers/{id}/delete-file`: delete one file inside Home (owner/controller only; directories and Home itself are refused).
 - `POST /computers/{id}/clone`: `{ "name": "Copy" }`.
 - `POST /computers/{id}/templates`: `{ "name": "Python tools" }`.
 - `GET /workspaces/{id}/templates`: templates with lifecycle state.
-- `POST /workspaces/{id}/computers`: `{ "name": "New desktop", "cpu": 1, "memory_gib": 2 }`; omitted resources default to 2 CPU / 4 GiB.
-- `POST /templates/{id}/computers`: `{ "name": "New desktop", "cpu": 1, "memory_gib": 2 }`; omitted resources inherit the template.
+- `POST /workspaces/{id}/computers`: `{ "name": "New desktop", "cpu": 1, "memory_gib": 2, "storage_gib": 50 }`; omitted resources default to 2 CPU / 4 GiB / 20 GiB.
+- `GET /workspaces/{id}/computers`: each row carries its effective `cpu`, `memory_gib`, `storage_gib` and `resolution`.
+- `POST /templates/{id}/computers`: `{ "name": "New desktop", "cpu": 1, "memory_gib": 2, "storage_gib": 50 }`; omitted resources inherit the template.
 - `DELETE /templates/{id}`: queue deletion.
 - `GET /workspaces/{id}/feature-jobs`: operation status and any user-safe error.
 

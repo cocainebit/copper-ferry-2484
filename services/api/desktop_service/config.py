@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     opensandbox_protocol: str = "http"
     opensandbox_api_key: str = ""
     desktop_image: str = "agent-desktop:local"
+    # True only where the runtime sizes home volumes (OpenSandbox Kubernetes). Docker ignores PVC size.
+    storage_quota_enforced: bool = False
     anthropic_model: str = "claude-sonnet-4-6"
     max_desktops: int = 4
     launch_enabled: bool = False

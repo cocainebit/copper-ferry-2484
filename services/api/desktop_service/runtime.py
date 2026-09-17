@@ -27,7 +27,7 @@ def connection():
 
 
 async def create(cid, password, snapshot_id=None):
-    from .feature_runtime import resolution_for, resource_for
+    from .feature_runtime import resolution_for, resource_for, storage_for
 
     resolution = resolution_for(cid)
     dimensions(resolution)
@@ -59,7 +59,9 @@ async def create(cid, password, snapshot_id=None):
         entrypoint=desktop_entrypoint(resolution, bool(snapshot_id)),
         volumes=[
             Volume(
-                name="home", pvc=PVC(claim_name="desktop-" + cid, create_if_not_exists=True), mount_path="/home/desktop"
+                name="home",
+                pvc=PVC(claim_name="desktop-" + cid, create_if_not_exists=True, storage=f"{storage_for(cid)}Gi"),
+                mount_path="/home/desktop",
             )
         ],
     )

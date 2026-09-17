@@ -27,7 +27,7 @@ The dashboard terminal has administrator privileges inside your computer. The gr
 
 ## Resources
 
-Workspace owners can select **1 or 2 CPU cores** and **2 or 4 GiB RAM**. Defaults are 2 CPU / 4 GiB. Stop the desktop first; the worker passes the saved allocation to OpenSandbox on the next start. Larger allocations and storage resizing are not available yet. Choose **1280×720, 1440×900 (default), or 1920×1080** during creation or in stopped-computer settings. Changes apply next start. Clones/templates inherit resolution; template consumers can override it. Agent coordinates match the selected dimensions. Legacy platform startup scripts are upgraded narrowly; custom scripts must honor `DESKTOP_RESOLUTION` or startup fails the geometry check.
+Workspace owners can select **1 or 2 CPU cores** and **2 or 4 GiB RAM**. Defaults are 2 CPU / 4 GiB. Stop the desktop first; the worker passes the saved allocation to OpenSandbox on the next start. Pick a **20, 50 or 100 GiB** home storage tier the same way. On the local Docker runtime the tier bounds clone copies and is displayed against measured usage but is not a hard disk limit; on the Kubernetes runtime it sizes the home volume. Larger CPU/RAM allocations are not available yet. Choose **1280×720, 1440×900 (default), or 1920×1080** during creation or in stopped-computer settings. Changes apply next start. Clones/templates inherit resolution; template consumers can override it. Agent coordinates match the selected dimensions. Legacy platform startup scripts are upgraded narrowly; custom scripts must honor `DESKTOP_RESOLUTION` or startup fails the geometry check.
 
 ## Idle stop and background work
 
@@ -55,6 +55,6 @@ See [feature details and API routes](FEATURES.md) for quotas, asynchronous opera
 - Deleting a computer erases its home and removes its saved system snapshot. It is not a restore operation. Self-service point-in-time restore, public template sharing and Windows/macOS desktops are not implemented.
 - Operator [backup and recovery](BACKUPS.md) tools exist; local backup extraction and a disposable database restore have passed. Their availability does not mean your desktop has a scheduled backup or that a complete recovery drill has passed. Production needs a defined off-host backup schedule and tested recovery.
 - The local Docker preview uses a development-only Chromium `--no-sandbox` flag because Docker Desktop blocks Chromium's namespace sandbox. Production does not receive that flag and requires a tested hardened runtime. Do not expose this development environment publicly.
-- CPU/RAM limits do not enforce disk quotas. The clone has a 20 GiB copy-size safeguard, but persistent home volumes and snapshots still need independently enforced production storage quotas.
+- CPU/RAM limits do not enforce disk quotas. The storage tier bounds clone copies and, on Kubernetes, sizes the home claim; on Docker it is advisory. Snapshots still need independently enforced production storage quotas.
 
 See [production runtime preparation](PRODUCTION_RUNTIME.md), [deployment](DEPLOYMENT.md), and [remaining launch blockers](../ROADBLOCKS.md).

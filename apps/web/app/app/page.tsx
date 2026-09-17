@@ -50,6 +50,7 @@ type CreationTemplate = {
   status: string;
   cpu: number;
   memory_gib: number;
+  storage_gib: number;
   resolution: string;
   idle_timeout_minutes: number;
 };
@@ -69,6 +70,7 @@ export default function Dashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createCpu, setCreateCpu] = useState(2);
   const [createMemory, setCreateMemory] = useState(4);
+  const [createStorage, setCreateStorage] = useState(20);
   const [createResolution, setCreateResolution] = useState("1440x900");
   const [createIdleTimeout, setCreateIdleTimeout] = useState(15);
   const [createTemplate, setCreateTemplate] = useState("");
@@ -103,6 +105,7 @@ export default function Dashboard() {
     setCreationTemplates([]);
     setCreateCpu(2);
     setCreateMemory(4);
+    setCreateStorage(20);
     setCreateResolution("1440x900");
     setCreateIdleTimeout(15);
     setCreationError("");
@@ -266,6 +269,7 @@ export default function Dashboard() {
       name: name.trim(),
       cpu: createCpu,
       memory_gib: createMemory,
+      storage_gib: createStorage,
       resolution: createResolution,
       idle_timeout_minutes: createIdleTimeout,
     };
@@ -492,7 +496,10 @@ export default function Dashboard() {
                   <div className="computer-card-bottom">
                     <div>
                       <h3>{c.name}</h3>
-                      <p>Linux · 2 vCPU · 4 GB RAM</p>
+                      <p>
+                        Linux · {c.cpu ?? 2} vCPU · {c.memory_gib ?? 4} GiB RAM
+                        · {c.storage_gib ?? 20} GiB
+                      </p>
                     </div>
                     <ArrowUpRight size={18} />
                   </div>
@@ -621,13 +628,23 @@ export default function Dashboard() {
                             return;
                           }
                           await perform(async () => {
-                            const data = await new Promise<string>((resolve, reject) => {
-                              const reader = new FileReader();
-                              reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
-                              reader.onerror = () => reject(new Error("Could not read file"));
-                              reader.readAsDataURL(file);
+                            const data = await new Promise<string>(
+                              (resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () =>
+                                  resolve(
+                                    String(reader.result).split(",", 2)[1] ||
+                                      "",
+                                  );
+                                reader.onerror = () =>
+                                  reject(new Error("Could not read file"));
+                                reader.readAsDataURL(file);
+                              },
+                            );
+                            await api(`/computers/${selected}/upload`, "POST", {
+                              path: file.name,
+                              data,
                             });
-                            await api(`/computers/${selected}/upload`, "POST", { path: file.name, data });
                             const refreshed = await api<typeof files>(
                               `/computers/${selected}/files?path=${encodeURIComponent(filePath)}`,
                             );
@@ -661,35 +678,42 @@ export default function Dashboard() {
                           disabled={busy}
                           title={f.directory ? "Open folder" : "Download file"}
                         >
-                      <Folder size={16} />
-                      <span>{f.name}</span>
-                      <small>
-                        {f.directory ? "Folder" : `${f.size} B`}
-                      </small>
-                      {!f.directory && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Delete ${f.name}`}
-                          className="file-delete"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!window.confirm(`Delete ${f.name}?`)) return;
-                            await perform(async () => {
-                              await api(`/computers/${selected}/delete-file`, "POST", {
-                                path: [filePath, f.name].filter(Boolean).join("/"),
-                              });
-                              const refreshed = await api<typeof files>(
-                                `/computers/${selected}/files?path=${encodeURIComponent(filePath)}`,
-                              );
-                              setFiles(refreshed);
-                            });
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </span>
-                      )}
-                      </button>
+                          <Folder size={16} />
+                          <span>{f.name}</span>
+                          <small>
+                            {f.directory ? "Folder" : `${f.size} B`}
+                          </small>
+                          {!f.directory && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Delete ${f.name}`}
+                              className="file-delete"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!window.confirm(`Delete ${f.name}?`))
+                                  return;
+                                await perform(async () => {
+                                  await api(
+                                    `/computers/${selected}/delete-file`,
+                                    "POST",
+                                    {
+                                      path: [filePath, f.name]
+                                        .filter(Boolean)
+                                        .join("/"),
+                                    },
+                                  );
+                                  const refreshed = await api<typeof files>(
+                                    `/computers/${selected}/files?path=${encodeURIComponent(filePath)}`,
+                                  );
+                                  setFiles(refreshed);
+                                });
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </span>
+                          )}
+                        </button>
                       ))
                     ) : (
                       <div className="panel-empty">
@@ -1126,6 +1150,7 @@ export default function Dashboard() {
                     );
                     setCreateCpu(template?.cpu || 2);
                     setCreateMemory(template?.memory_gib || 4);
+                    setCreateStorage(template?.storage_gib || 20);
                     setCreateResolution(template?.resolution || "1440x900");
                     setCreateIdleTimeout(template?.idle_timeout_minutes ?? 15);
                   }}
@@ -1175,6 +1200,19 @@ export default function Dashboard() {
                   >
                     <option value={2}>2 GiB RAM</option>
                     <option value={4}>4 GiB RAM</option>
+                  </select>
+                </label>
+                <label>
+                  Storage
+                  <select
+                    aria-label="Storage"
+                    value={createStorage}
+                    disabled={creating}
+                    onChange={(e) => setCreateStorage(Number(e.target.value))}
+                  >
+                    <option value={20}>20 GiB</option>
+                    <option value={50}>50 GiB</option>
+                    <option value={100}>100 GiB</option>
                   </select>
                 </label>
               </div>

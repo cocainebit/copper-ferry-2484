@@ -416,3 +416,29 @@ def test_create_rejects_invalid_configuration(client, db, body):
     response = client.post("/v1/workspaces/w/computers", json=body, headers={"Idempotency-Key": "invalid-create-001"})
     assert response.status_code == 422
     assert db.scalar(select(Computer)) is None
+
+
+def test_config_advertises_cubicle_pricing_not_legacy_plan(client):
+    body = client.get("/v1/config").json()
+    assert body["payment_provider"] == "x402"
+    assert body["minute_micro_usdc"] == 3334 and body["hour_usdc"] == 0.2
+    assert "price" not in body and "included_hours" not in body
+    assert body["storage_quota_enforced"] is False
+
+
+def test_computer_listing_reports_effective_profile(client, db):
+    created = client.post(
+        "/v1/workspaces/w/computers",
+        json={"name": "Sized", "cpu": 1, "memory_gib": 2, "storage_gib": 100, "resolution": "1280x720"},
+        headers={"Idempotency-Key": "sized-create-001"},
+    ).json()
+    listed = {c["id"]: c for c in client.get("/v1/workspaces/w/computers").json()}[created["id"]]
+    assert (listed["cpu"], listed["memory_gib"], listed["storage_gib"], listed["resolution"]) == (1, 2, 100, "1280x720")
+    assert (
+        client.post(
+            "/v1/workspaces/w/computers",
+            json={"name": "Bad", "storage_gib": 30},
+            headers={"Idempotency-Key": "bad-storage"},
+        ).status_code
+        == 422
+    )
