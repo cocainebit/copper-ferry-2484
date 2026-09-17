@@ -105,11 +105,20 @@ server.registerTool(
   {
     description:
       "Take a screenshot of the live desktop. Coordinates for click/drag/scroll use this image's pixels.",
-    inputSchema: { id },
+    inputSchema: {
+      id,
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
+    },
   },
-  async ({ id }) =>
+  async ({ id, screen }) =>
     guarded(async () => {
-      const shot = await client.screenshot(id);
+      const shot = await client.screenshot(id, screen ?? 0);
       return {
         content: [
           { type: "image" as const, data: shot.image, mimeType: "image/png" },
@@ -130,20 +139,41 @@ server.registerTool(
       y: z.number().int().min(0),
       button: z.enum(["left", "right", "middle"]).optional(),
       count: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
     },
   },
-  async ({ id, x, y, button, count }) =>
-    guarded(async () => text(await client.click(id, x, y, { button, count }))),
+  async ({ id, x, y, button, count, screen }) =>
+    guarded(async () =>
+      text(
+        await client.click(id, x, y, { button, count, screen: screen ?? 0 }),
+      ),
+    ),
 );
 
 server.registerTool(
   "type_text",
   {
     description: "Type text into the focused window (Unicode safe).",
-    inputSchema: { id, text: z.string().min(1).max(10000) },
+    inputSchema: {
+      id,
+      text: z.string().min(1).max(10000),
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
+    },
   },
-  async ({ id, text: value }) =>
-    guarded(async () => text(await client.type(id, value))),
+  async ({ id, text: value, screen }) =>
+    guarded(async () => text(await client.type(id, value, screen ?? 0))),
 );
 
 server.registerTool(
@@ -151,9 +181,20 @@ server.registerTool(
   {
     description:
       "Press a key or chord in xdotool syntax: Return, Tab, Escape, ctrl+l, ctrl+shift+t, alt+F4.",
-    inputSchema: { id, key: z.string().regex(/^[A-Za-z0-9_+\-]+$/) },
+    inputSchema: {
+      id,
+      key: z.string().regex(/^[A-Za-z0-9_+\-]+$/),
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
+    },
   },
-  async ({ id, key }) => guarded(async () => text(await client.key(id, key))),
+  async ({ id, key, screen }) =>
+    guarded(async () => text(await client.key(id, key, screen ?? 0))),
 );
 
 server.registerTool(
@@ -167,10 +208,19 @@ server.registerTool(
       y: z.number().int().min(0),
       direction: z.enum(["up", "down", "left", "right"]).optional(),
       amount: z.number().int().min(1).max(100).optional(),
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
     },
   },
-  async ({ id, x, y, direction, amount }) =>
-    guarded(async () => text(await client.scroll(id, x, y, direction, amount))),
+  async ({ id, x, y, direction, amount, screen }) =>
+    guarded(async () =>
+      text(await client.scroll(id, x, y, direction, amount, screen ?? 0)),
+    ),
 );
 
 server.registerTool(
@@ -183,10 +233,19 @@ server.registerTool(
       y1: z.number().int(),
       x2: z.number().int(),
       y2: z.number().int(),
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
     },
   },
-  async ({ id, x1, y1, x2, y2 }) =>
-    guarded(async () => text(await client.drag(id, [x1, y1], [x2, y2]))),
+  async ({ id, x1, y1, x2, y2, screen }) =>
+    guarded(async () =>
+      text(await client.drag(id, [x1, y1], [x2, y2], screen ?? 0)),
+    ),
 );
 
 server.registerTool(
@@ -203,7 +262,7 @@ server.registerTool(
         content: [
           {
             type: "text" as const,
-            text: r.error ? `${r.output}\n[error] ${r.error}` : r.output,
+            text: r.error ? `${r.output}\n[${r.error}]` : r.output,
           },
         ],
         isError: !!r.error,
@@ -254,6 +313,101 @@ server.registerTool(
     guarded(async () =>
       text(await client.upload(id, path, new TextEncoder().encode(content))),
     ),
+);
+
+server.registerTool(
+  "list_screens",
+  {
+    description: "List a computer's displays with their resolutions.",
+    inputSchema: { id },
+  },
+  async ({ id }) => guarded(async () => text(await client.screens(id))),
+);
+
+server.registerTool(
+  "add_screen",
+  {
+    description:
+      "Add a display (up to four in total). Needs the manage scope. Returns its number for screen-targeted tools.",
+    inputSchema: {
+      id,
+      resolution: z.enum(["1280x720", "1440x900", "1920x1080"]).optional(),
+    },
+  },
+  async ({ id, resolution }) =>
+    guarded(async () => text(await client.addScreen(id, resolution))),
+);
+
+server.registerTool(
+  "list_apps",
+  {
+    description: "App catalog for a computer with each app's install status.",
+    inputSchema: { id },
+  },
+  async ({ id }) =>
+    guarded(async () =>
+      text(
+        (await client.apps(id)).map((a) => ({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          status: a.install?.status || "not installed",
+          launchable: a.launchable,
+        })),
+      ),
+    ),
+);
+
+server.registerTool(
+  "install_app",
+  {
+    description:
+      "Install a catalog app (runs in the background; poll list_apps). Needs the manage scope.",
+    inputSchema: { id, app: z.string() },
+  },
+  async ({ id, app }) =>
+    guarded(async () => text(await client.installApp(id, app))),
+);
+
+server.registerTool(
+  "launch_app",
+  {
+    description: "Open an installed app on a display.",
+    inputSchema: {
+      id,
+      app: z.string(),
+      screen: z
+        .number()
+        .int()
+        .min(0)
+        .max(3)
+        .optional()
+        .describe("Display number, 0 is primary"),
+    },
+  },
+  async ({ id, app, screen }) =>
+    guarded(async () => text(await client.launchApp(id, app, screen ?? 0))),
+);
+
+server.registerTool(
+  "fleet_overview",
+  {
+    description:
+      "Workspace fleet: plan limits, host capacity, 24 h usage and every computer with labels and status.",
+    inputSchema: {},
+  },
+  async () =>
+    guarded(async () => {
+      const workspaces = await client.workspaces();
+      return text(
+        await Promise.all(
+          workspaces.map(async (w) => ({
+            workspace: w.name,
+            ...(await client.fleet(w.id)),
+          })),
+        ),
+      );
+    }),
 );
 
 await server.connect(new StdioServerTransport());

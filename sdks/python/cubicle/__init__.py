@@ -67,14 +67,10 @@ class Cubicle:
         )
 
     def start(self, cid):
-        return self.request(
-            "POST", f"/computers/{cid}/actions/start", idempotency_key=str(uuid.uuid4())
-        )
+        return self.request("POST", f"/computers/{cid}/actions/start", idempotency_key=str(uuid.uuid4()))
 
     def stop(self, cid):
-        return self.request(
-            "POST", f"/computers/{cid}/actions/stop", idempotency_key=str(uuid.uuid4())
-        )
+        return self.request("POST", f"/computers/{cid}/actions/stop", idempotency_key=str(uuid.uuid4()))
 
     def rename(self, cid, name):
         return self.request("PATCH", f"/computers/{cid}", {"name": name})
@@ -101,53 +97,127 @@ class Cubicle:
             time.sleep(interval)
 
     # Control
-    def screenshot(self, cid):
-        """PNG bytes of the live desktop."""
-        return base64.b64decode(
-            self.request("POST", f"/computers/{cid}/screenshot")["image"]
-        )
+    # Every input method takes screen: 0 is the primary display, extra screens are 1-3.
+    def screenshot(self, cid, screen=0):
+        """PNG bytes of a live display."""
+        return base64.b64decode(self.screenshot_info(cid, screen)["image"])
 
-    def screenshot_info(self, cid):
-        return self.request("POST", f"/computers/{cid}/screenshot")
+    def screenshot_info(self, cid, screen=0):
+        return self.request("POST", f"/computers/{cid}/screenshot", params={"screen": screen})
 
-    def click(self, cid, x, y, button="left", count=1):
-        return self.request(
-            "POST",
-            f"/computers/{cid}/click",
-            {"x": x, "y": y, "button": button, "count": count},
-        )
+    def click(self, cid, x, y, button="left", count=1, screen=0):
+        body = {"x": x, "y": y, "button": button, "count": count, "screen": screen}
+        return self.request("POST", f"/computers/{cid}/click", body)
 
-    def double_click(self, cid, x, y):
-        return self.click(cid, x, y, count=2)
+    def double_click(self, cid, x, y, screen=0):
+        return self.click(cid, x, y, count=2, screen=screen)
 
-    def right_click(self, cid, x, y):
-        return self.click(cid, x, y, button="right")
+    def right_click(self, cid, x, y, screen=0):
+        return self.click(cid, x, y, button="right", screen=screen)
 
-    def drag(self, cid, start, end):
-        return self.request(
-            "POST", f"/computers/{cid}/drag", {"from": list(start), "to": list(end)}
-        )
+    def drag(self, cid, start, end, screen=0):
+        body = {"from": list(start), "to": list(end), "screen": screen}
+        return self.request("POST", f"/computers/{cid}/drag", body)
 
-    def scroll(self, cid, x, y, direction="down", amount=3):
-        return self.request(
-            "POST",
-            f"/computers/{cid}/scroll",
-            {"x": x, "y": y, "direction": direction, "amount": amount},
-        )
+    def scroll(self, cid, x, y, direction="down", amount=3, screen=0):
+        body = {"x": x, "y": y, "direction": direction, "amount": amount, "screen": screen}
+        return self.request("POST", f"/computers/{cid}/scroll", body)
 
-    def type(self, cid, text):
-        return self.request("POST", f"/computers/{cid}/type", {"text": text})
+    def type(self, cid, text, screen=0):
+        return self.request("POST", f"/computers/{cid}/type", {"text": text, "screen": screen})
 
-    def key(self, cid, key):
+    def key(self, cid, key, screen=0):
         """xdotool key syntax: Return, ctrl+l, alt+F4."""
-        return self.request("POST", f"/computers/{cid}/key", {"key": key})
+        return self.request("POST", f"/computers/{cid}/key", {"key": key, "screen": screen})
 
     def bash(self, cid, command):
-        """Returns {"output": str, "error": str | None}. Commands run as administrator with a 45 second limit."""
+        """Returns output, error and exit_code; output is kept when the command fails. 45 second limit."""
         return self.request("POST", f"/computers/{cid}/bash", {"command": command})
 
-    def wait(self, cid, seconds=1):
-        return self.request("POST", f"/computers/{cid}/wait", {"seconds": seconds})
+    def wait(self, cid, seconds=1, screen=0):
+        return self.request("POST", f"/computers/{cid}/wait", {"seconds": seconds, "screen": screen})
+
+    # Screens
+    def screens(self, cid):
+        return self.request("GET", f"/computers/{cid}/screens")
+
+    def add_screen(self, cid, resolution="1440x900"):
+        return self.request("POST", f"/computers/{cid}/screens", {"resolution": resolution})
+
+    def remove_screen(self, cid, screen):
+        return self.request("DELETE", f"/computers/{cid}/screens/{screen}")
+
+    # Apps
+    def app_catalog(self):
+        return self.request("GET", "/apps")
+
+    def apps(self, cid):
+        return self.request("GET", f"/computers/{cid}/apps")
+
+    def install_app(self, cid, app_id):
+        return self.request("POST", f"/computers/{cid}/apps/{app_id}/install")
+
+    def remove_app(self, cid, app_id):
+        return self.request("POST", f"/computers/{cid}/apps/{app_id}/remove")
+
+    def launch_app(self, cid, app_id, screen=0):
+        return self.request("POST", f"/computers/{cid}/apps/{app_id}/launch", params={"screen": screen})
+
+    # Automations
+    def automations(self, cid):
+        return self.request("GET", f"/computers/{cid}/automations")
+
+    def create_automation(self, cid, name, trigger, action, **options):
+        """trigger and action are dicts, e.g. {"kind": "schedule", "cron": "0 9 * * *"}, {"kind": "command", ...}."""
+        body = {"name": name, "trigger": trigger, "action": action, **options}
+        return self.request("POST", f"/computers/{cid}/automations", body)
+
+    def run_automation(self, automation_id):
+        return self.request("POST", f"/automations/{automation_id}/run")
+
+    def automation_runs(self, automation_id):
+        return self.request("GET", f"/automations/{automation_id}/runs")
+
+    def set_automation_enabled(self, automation_id, enabled):
+        return self.request("PATCH", f"/automations/{automation_id}", {"enabled": enabled})
+
+    def delete_automation(self, automation_id):
+        return self.request("DELETE", f"/automations/{automation_id}")
+
+    # Templates
+    def template_starters(self):
+        return self.request("GET", "/template-starters")
+
+    def template_definitions(self, workspace_id):
+        return self.request("GET", f"/workspaces/{workspace_id}/template-definitions")
+
+    def publish_template(self, workspace_id, name, spec, idempotency_key=None):
+        """Identical specs return the existing version; a changed spec builds the next version."""
+        key = idempotency_key or str(uuid.uuid4())
+        body = {"name": name, "spec": spec}
+        return self.request("POST", f"/workspaces/{workspace_id}/template-definitions", body, key)
+
+    def template(self, template_id):
+        return self.request("GET", f"/templates/{template_id}")
+
+    def create_from_template(self, template_id, name, idempotency_key=None, **options):
+        key = idempotency_key or str(uuid.uuid4())
+        return self.request("POST", f"/templates/{template_id}/computers", {"name": name, **options}, key)
+
+    # Fleet
+    def fleet(self, workspace_id, q="", status="", label=""):
+        params = {"q": q, "status": status, "label": label}
+        return self.request("GET", f"/workspaces/{workspace_id}/fleet", params=params)
+
+    def set_labels(self, cid, labels):
+        return self.request("PUT", f"/computers/{cid}/labels", {"labels": list(labels)})
+
+    def bulk(self, workspace_id, ids, action, label=None):
+        body = {"ids": list(ids), "action": action, **({"label": label} if label else {})}
+        return self.request("POST", f"/workspaces/{workspace_id}/computers/bulk", body)
+
+    def move(self, cid, workspace_id):
+        return self.request("POST", f"/computers/{cid}/move", {"workspace_id": workspace_id})
 
     # Files
     def files(self, cid, path=""):
@@ -169,9 +239,7 @@ class Cubicle:
 
     # Built-in agent
     def submit_task(self, cid, prompt):
-        return self.request(
-            "POST", f"/computers/{cid}/runs", {"prompt": prompt}, str(uuid.uuid4())
-        )
+        return self.request("POST", f"/computers/{cid}/runs", {"prompt": prompt}, str(uuid.uuid4()))
 
     def runs(self, cid):
         return self.request("GET", f"/computers/{cid}/runs")

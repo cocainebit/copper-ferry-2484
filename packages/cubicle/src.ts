@@ -40,6 +40,65 @@ export type CreateOptions = {
 export type ClickOptions = {
   button?: "left" | "right" | "middle";
   count?: 1 | 2 | 3;
+  /** 0 is the primary display; extra screens are 1-3. */
+  screen?: number;
+};
+export type BashResult = {
+  output: string;
+  error: string | null;
+  exit_code: string | number | null;
+};
+export type ScreenInfo = {
+  number: number;
+  resolution: string;
+  primary: boolean;
+};
+export type AppEntry = {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  launchable: boolean;
+  removable: boolean;
+  requires: string[];
+  install: {
+    id: string;
+    status: string;
+    error: string | null;
+    log: string;
+  } | null;
+};
+export type AutomationBody = {
+  name: string;
+  trigger:
+    | { kind: "schedule"; cron: string; timezone?: string }
+    | { kind: "interval"; every_minutes: number }
+    | { kind: "webhook" }
+    | { kind: "file"; path: string }
+    | { kind: "process"; process: string };
+  action:
+    | { kind: "command"; command: string }
+    | { kind: "agent_task"; prompt: string }
+    | { kind: "start" }
+    | { kind: "stop" };
+  enabled?: boolean;
+  start_if_stopped?: boolean;
+  timeout_minutes?: number;
+};
+export type TemplateSpec = {
+  description?: string;
+  apps?: string[];
+  packages?: string[];
+  files?: { path: string; content: string; mode?: string }[];
+  run?: string[];
+  startup?: string[];
+  env?: Record<string, string>;
+  requires_secrets?: string[];
+  cpu?: 1 | 2;
+  memory_gib?: 2 | 4;
+  storage_gib?: 20 | 50 | 100;
+  resolution?: "1280x720" | "1440x900" | "1920x1080";
+  idle_timeout_minutes?: number;
 };
 export type Direction = "up" | "down" | "left" | "right";
 
@@ -183,11 +242,14 @@ export class Cubicle {
     }
   }
 
-  screenshot(id: string) {
-    return this.request<Screenshot>("POST", `/computers/${id}/screenshot`);
+  screenshot(id: string, screen = 0) {
+    return this.request<Screenshot>(
+      "POST",
+      `/computers/${id}/screenshot?screen=${screen}`,
+    );
   }
-  async screenshotBytes(id: string) {
-    return fromBase64((await this.screenshot(id)).image);
+  async screenshotBytes(id: string, screen = 0) {
+    return fromBase64((await this.screenshot(id, screen)).image);
   }
   click(id: string, x: number, y: number, options: ClickOptions = {}) {
     return this.request("POST", `/computers/${id}/click`, { x, y, ...options });
@@ -198,8 +260,8 @@ export class Cubicle {
   rightClick(id: string, x: number, y: number) {
     return this.click(id, x, y, { button: "right" });
   }
-  drag(id: string, from: [number, number], to: [number, number]) {
-    return this.request("POST", `/computers/${id}/drag`, { from, to });
+  drag(id: string, from: [number, number], to: [number, number], screen = 0) {
+    return this.request("POST", `/computers/${id}/drag`, { from, to, screen });
   }
   scroll(
     id: string,
@@ -207,30 +269,163 @@ export class Cubicle {
     y: number,
     direction: Direction = "down",
     amount = 3,
+    screen = 0,
   ) {
     return this.request("POST", `/computers/${id}/scroll`, {
       x,
       y,
       direction,
       amount,
+      screen,
     });
   }
-  type(id: string, text: string) {
-    return this.request("POST", `/computers/${id}/type`, { text });
+  type(id: string, text: string, screen = 0) {
+    return this.request("POST", `/computers/${id}/type`, { text, screen });
   }
   /** xdotool key syntax, e.g. "Return", "ctrl+l", "alt+F4". */
-  key(id: string, key: string) {
-    return this.request("POST", `/computers/${id}/key`, { key });
+  key(id: string, key: string, screen = 0) {
+    return this.request("POST", `/computers/${id}/key`, { key, screen });
   }
+  /** Output is returned even when the command fails; check exit_code. */
   bash(id: string, command: string) {
-    return this.request<{ output: string; error: string | null }>(
+    return this.request<BashResult>("POST", `/computers/${id}/bash`, {
+      command,
+    });
+  }
+  wait(id: string, seconds = 1, screen = 0) {
+    return this.request("POST", `/computers/${id}/wait`, { seconds, screen });
+  }
+
+  screens(id: string) {
+    return this.request<ScreenInfo[]>("GET", `/computers/${id}/screens`);
+  }
+  addScreen(id: string, resolution = "1440x900") {
+    return this.request<ScreenInfo & { live: boolean }>(
       "POST",
-      `/computers/${id}/bash`,
-      { command },
+      `/computers/${id}/screens`,
+      { resolution },
     );
   }
-  wait(id: string, seconds = 1) {
-    return this.request("POST", `/computers/${id}/wait`, { seconds });
+  removeScreen(id: string, screen: number) {
+    return this.request("DELETE", `/computers/${id}/screens/${screen}`);
+  }
+
+  appCatalog() {
+    return this.request<Omit<AppEntry, "install">[]>("GET", "/apps");
+  }
+  apps(id: string) {
+    return this.request<AppEntry[]>("GET", `/computers/${id}/apps`);
+  }
+  installApp(id: string, appId: string) {
+    return this.request("POST", `/computers/${id}/apps/${appId}/install`);
+  }
+  removeApp(id: string, appId: string) {
+    return this.request("POST", `/computers/${id}/apps/${appId}/remove`);
+  }
+  launchApp(id: string, appId: string, screen = 0) {
+    return this.request(
+      "POST",
+      `/computers/${id}/apps/${appId}/launch?screen=${screen}`,
+    );
+  }
+
+  automations(id: string) {
+    return this.request<any[]>("GET", `/computers/${id}/automations`);
+  }
+  /** Webhook automations return webhook_token once; store it. */
+  createAutomation(id: string, body: AutomationBody) {
+    return this.request<any>("POST", `/computers/${id}/automations`, body);
+  }
+  runAutomation(automationId: string) {
+    return this.request<any>("POST", `/automations/${automationId}/run`);
+  }
+  automationRuns(automationId: string) {
+    return this.request<any[]>("GET", `/automations/${automationId}/runs`);
+  }
+  setAutomationEnabled(automationId: string, enabled: boolean) {
+    return this.request<any>("PATCH", `/automations/${automationId}`, {
+      enabled,
+    });
+  }
+  deleteAutomation(automationId: string) {
+    return this.request("DELETE", `/automations/${automationId}`);
+  }
+
+  templateStarters() {
+    return this.request<any[]>("GET", "/template-starters");
+  }
+  templateDefinitions(workspaceId: string) {
+    return this.request<any[]>(
+      "GET",
+      `/workspaces/${workspaceId}/template-definitions`,
+    );
+  }
+  /** Identical specs return the existing version; changed specs build a new one. */
+  publishTemplate(
+    workspaceId: string,
+    name: string,
+    spec: TemplateSpec,
+    idempotencyKey = crypto.randomUUID(),
+  ) {
+    return this.request<{ template: any; built: boolean }>(
+      "POST",
+      `/workspaces/${workspaceId}/template-definitions`,
+      { name, spec },
+      idempotencyKey,
+    );
+  }
+  template(templateId: string) {
+    return this.request<any>("GET", `/templates/${templateId}`);
+  }
+  createFromTemplate(
+    templateId: string,
+    options: Partial<CreateOptions> & { name: string },
+    idempotencyKey = crypto.randomUUID(),
+  ) {
+    return this.request<{ id: string; target_id: string; status: string }>(
+      "POST",
+      `/templates/${templateId}/computers`,
+      options,
+      idempotencyKey,
+    );
+  }
+
+  fleet(
+    workspaceId: string,
+    filters: { q?: string; status?: string; label?: string } = {},
+  ) {
+    const params = new URLSearchParams(filters as Record<string, string>);
+    return this.request<{ summary: any; computers: any[] }>(
+      "GET",
+      `/workspaces/${workspaceId}/fleet?${params}`,
+    );
+  }
+  setLabels(id: string, labels: string[]) {
+    return this.request<{ labels: string[] }>(
+      "PUT",
+      `/computers/${id}/labels`,
+      { labels },
+    );
+  }
+  bulk(
+    workspaceId: string,
+    ids: string[],
+    action: "start" | "stop" | "add_label" | "remove_label",
+    label?: string,
+  ) {
+    return this.request<{
+      succeeded: number;
+      results: { id: string; ok: boolean; error?: string }[];
+    }>("POST", `/workspaces/${workspaceId}/computers/bulk`, {
+      ids,
+      action,
+      ...(label ? { label } : {}),
+    });
+  }
+  move(id: string, workspaceId: string) {
+    return this.request("POST", `/computers/${id}/move`, {
+      workspace_id: workspaceId,
+    });
   }
 
   files(id: string, path = "") {
