@@ -2,7 +2,7 @@
 
 from sqlalchemy import inspect, text
 
-from . import api_keys, crypto_models, feature_models, payment_models, secrets_vault  # noqa: F401
+from . import api_keys, apps, crypto_models, feature_models, payment_models, secrets_vault  # noqa: F401
 from .db import Base, engine
 
 

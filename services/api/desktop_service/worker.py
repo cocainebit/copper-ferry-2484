@@ -12,7 +12,7 @@ from uuid import uuid4
 import anthropic
 from sqlalchemy import func, select, text
 
-from . import features, runtime, secrets_vault
+from . import apps, features, runtime, secrets_vault
 from .config import settings
 from .db import Computer, Credential, Run, ServiceHeartbeat, Session, Workspace, engine, event, now
 from .display import dimensions
@@ -315,6 +315,12 @@ async def reconcile():
                     event(db, c.id, "Computer is ready. Connect your agent or take control.")
                 elif c.status == "running":
                     await runtime.keep_alive(c.sandbox_id)
+                    try:
+                        await apps.poll(db, c)
+                    except Exception:
+                        # A guest-side hiccup must never stall metering or idle handling for the computer.
+                        db.rollback()
+                        log.exception("App install polling failed for %s", c.id)
                     elapsed = int((now() - c.metered_at).total_seconds() // 60) if c.metered_at else 0
                     for _ in range(min(elapsed, 1440)):
                         c.metered_at += timedelta(minutes=1)

@@ -2072,3 +2072,116 @@ button.file-row:hover {
   margin: 0;
   accent-color: var(--accent);
 }
+
+.apps-panel {
+  display: grid;
+  gap: 14px;
+}
+.apps-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #8b9e90;
+}
+.apps-toolbar > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.apps-toolbar > div {
+  display: flex;
+  gap: 8px;
+}
+.apps-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #a5b8ab;
+  border: 1px solid #303034;
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: transparent;
+}
+.apps-toolbar button:disabled {
+  opacity: 0.45;
+}
+.apps-category h3 {
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #6c6c74;
+  margin: 4px 0 8px;
+}
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.app-card {
+  border: 1px solid #242426;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #0f0f11;
+  font-size: 11px;
+  display: grid;
+  gap: 6px;
+}
+.app-card.installed {
+  border-color: #2f4a3a;
+}
+.app-card.failed {
+  border-color: #5a3434;
+}
+.app-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.app-card-head .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.app-card p {
+  color: #8a8a92;
+  margin: 0;
+}
+.app-card .field-note {
+  margin: 0;
+}
+.error-text {
+  color: #d99a9a;
+}
+.app-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.app-card-actions .button {
+  font-size: 10px;
+  padding: 5px 9px;
+}
+.app-card-actions .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+}
+.app-log {
+  max-height: 160px;
+  overflow: auto;
+  background: #0b0b0d;
+  border: 1px solid #1f1f22;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 10px;
+  color: #a5b8ab;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

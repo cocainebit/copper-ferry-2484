@@ -39,6 +39,9 @@ CONTROL_ROUTES = {
     "/v1/computers/{cid}/terminal",
     "/v1/computers/{cid}/upload",
     "/v1/computers/{cid}/delete-file",
+    "/v1/computers/{cid}/apps/{app_id}/launch",
+    "/v1/computers/{cid}/apps/check",
+    "/v1/computers/{cid}/secrets/refresh",
 }
 MANAGE_ROUTES = {
     "/v1/workspaces/{wid}/computers",
@@ -51,6 +54,9 @@ MANAGE_ROUTES = {
     "/v1/computers/{cid}/templates",
     "/v1/templates/{tid}/computers",
     "/v1/templates/{tid}",
+    "/v1/computers/{cid}/apps/{app_id}/install",
+    "/v1/computers/{cid}/apps/{app_id}/remove",
+    "/v1/computers/{cid}/secrets",
 }
 
 

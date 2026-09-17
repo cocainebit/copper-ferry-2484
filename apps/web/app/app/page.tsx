@@ -32,6 +32,7 @@ import {
   ArrowLeft,
   Trash2,
   Pencil,
+  Package,
 } from "lucide-react";
 import {
   api,
@@ -48,6 +49,7 @@ import { Viewer } from "@/components/viewer";
 import { TerminalPanel } from "@/components/terminal";
 import { ApiKeys } from "@/components/api-keys";
 import { Secrets } from "@/components/secrets";
+import { AppsPanel } from "@/components/apps";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -654,6 +656,7 @@ export default function Dashboard() {
                   {[
                     ["files", Folder],
                     ["terminal", Terminal],
+                    ["apps", Package],
                     ["activity", Activity],
                   ].map(([label, Icon]) => {
                     const I = Icon as typeof Folder;
@@ -839,6 +842,12 @@ export default function Dashboard() {
                       </form>
                     </div>
                   )
+                ) : tab === "apps" ? (
+                  <AppsPanel
+                    key={computer.id}
+                    computer={computer}
+                    owner={workspace.role === "owner"}
+                  />
                 ) : (
                   <div className="activity-list">
                     {events
