@@ -47,6 +47,7 @@ import { Mark } from "@/components/brand";
 import { Viewer } from "@/components/viewer";
 import { TerminalPanel } from "@/components/terminal";
 import { ApiKeys } from "@/components/api-keys";
+import { Secrets } from "@/components/secrets";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -1009,6 +1010,7 @@ export default function Dashboard() {
                   computers={computers}
                   onRefresh={refresh}
                 />
+                <Secrets workspaceId={wid} />
                 <ApiKeys workspaceId={wid} />
               </>
             )}

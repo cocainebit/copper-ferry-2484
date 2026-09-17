@@ -74,6 +74,7 @@ async def create(cid, password, snapshot_id=None, pty_token=""):
 
 
 GUEST_PTY_SERVER = Path(__file__).with_name("guest") / "pty_server.py"
+SECRETS_PROFILE_HOOK = "[ -r /dev/shm/cubicle/secrets.env ] && . /dev/shm/cubicle/secrets.env"
 
 
 def snapshot_migration():
@@ -100,6 +101,8 @@ def desktop_entrypoint(resolution, from_snapshot=False):
     steps = [
         f"printf %s {payload} | base64 -d > /opt/desktop/pty_server.py",
         "(/opt/tools/bin/python /opt/desktop/pty_server.py > /tmp/pty.log 2>&1 &)",
+        # Login shells pick up workspace secrets from tmpfs; the hook itself holds no values.
+        "printf '%s\\n' " + shlex.quote(SECRETS_PROFILE_HOOK) + " > /etc/profile.d/cubicle-secrets.sh",
     ]
     if from_snapshot:
         steps.append("python3 -c " + shlex.quote(snapshot_migration()))

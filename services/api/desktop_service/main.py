@@ -43,6 +43,7 @@ from .onboarding import router as onboarding_router
 from .operations import requests as request_counts
 from .operations import router as operations_router
 from .platform_credits import available, paid_access
+from .secrets_vault import router as secrets_router
 from .security import digest, identity, member, seal
 from .x402_rail import configuration_status
 
@@ -609,6 +610,7 @@ def entitlements(wid: str, user=Depends(identity), db=Depends(database)):
 app.include_router(features_router)
 app.include_router(api_keys_router)
 app.include_router(computer_api_router)
+app.include_router(secrets_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

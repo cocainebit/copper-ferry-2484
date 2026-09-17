@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, now, uid
@@ -16,6 +16,9 @@ class DesktopProfile(Base):
     storage_gib: Mapped[int] = mapped_column(Integer, default=20, server_default="20")
     idle_timeout_minutes: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
     resolution: Mapped[str] = mapped_column(String(20), default="1440x900", server_default="1440x900")
+    # None means every workspace secret; a list restricts injection to those names.
+    secret_names: Mapped[list | None] = mapped_column(JSON)
+    secrets_injected_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class DesktopTemplate(Base):
