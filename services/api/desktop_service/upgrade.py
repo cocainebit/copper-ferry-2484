@@ -2,7 +2,15 @@
 
 from sqlalchemy import inspect, text
 
-from . import api_keys, apps, crypto_models, feature_models, payment_models, secrets_vault  # noqa: F401
+from . import (  # noqa: F401
+    api_keys,
+    apps,
+    crypto_models,
+    feature_models,
+    payment_models,
+    secrets_vault,
+    template_registry,
+)
 from .db import Base, engine
 
 
@@ -32,6 +40,17 @@ def upgrade():
         if "storage_gib" not in names:
             with engine.begin() as connection:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN storage_gib INTEGER NOT NULL DEFAULT 20"))
+        if table == "desktop_templates" and "definition_id" not in names:
+            with engine.begin() as connection:
+                for column, kind in (
+                    ("definition_id", "VARCHAR"),
+                    ("version", "INTEGER"),
+                    ("digest", "VARCHAR(80)"),
+                    ("spec", "JSON"),
+                    ("build_log", "TEXT"),
+                    ("requires_secrets", "JSON"),
+                ):
+                    connection.execute(text(f"ALTER TABLE desktop_templates ADD COLUMN {column} {kind}"))
         if table == "desktop_profiles" and "secret_names" not in names:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE desktop_profiles ADD COLUMN secret_names JSON"))

@@ -34,6 +34,13 @@ class DesktopTemplate(Base):
     idle_timeout_minutes: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
     resolution: Mapped[str] = mapped_column(String(20), default="1440x900", server_default="1440x900")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    # Set only for versions built from a declarative definition (template_registry).
+    definition_id: Mapped[str | None] = mapped_column(String, index=True)
+    version: Mapped[int | None] = mapped_column(Integer)
+    digest: Mapped[str | None] = mapped_column(String(80))
+    spec: Mapped[dict | None] = mapped_column(JSON)
+    build_log: Mapped[str | None] = mapped_column(Text)
+    requires_secrets: Mapped[list | None] = mapped_column(JSON)
 
 
 class FeatureJob(Base):

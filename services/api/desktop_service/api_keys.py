@@ -57,6 +57,8 @@ MANAGE_ROUTES = {
     "/v1/computers/{cid}/apps/{app_id}/install",
     "/v1/computers/{cid}/apps/{app_id}/remove",
     "/v1/computers/{cid}/secrets",
+    "/v1/workspaces/{wid}/template-definitions",
+    "/v1/templates/{tid}/rebuild",
 }
 
 

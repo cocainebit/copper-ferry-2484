@@ -46,6 +46,7 @@ from .operations import router as operations_router
 from .platform_credits import available, paid_access
 from .secrets_vault import router as secrets_router
 from .security import digest, identity, member, seal
+from .template_registry import router as template_registry_router
 from .x402_rail import configuration_status
 
 
@@ -613,6 +614,7 @@ app.include_router(api_keys_router)
 app.include_router(computer_api_router)
 app.include_router(secrets_router)
 app.include_router(apps_router)
+app.include_router(template_registry_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

@@ -73,6 +73,9 @@ def template_public(t):
         "resolution": t.resolution,
         "idle_timeout_minutes": t.idle_timeout_minutes,
         "includes_home": False,
+        "definition_id": t.definition_id,
+        "version": t.version,
+        "requires_secrets": t.requires_secrets or [],
     }
 
 
@@ -216,7 +219,11 @@ def save_template(
         db.scalar(
             select(func.count())
             .select_from(DesktopTemplate)
-            .where(DesktopTemplate.workspace_id == c.workspace_id, DesktopTemplate.status != "deleted")
+            .where(
+                DesktopTemplate.workspace_id == c.workspace_id,
+                DesktopTemplate.status != "deleted",
+                DesktopTemplate.definition_id.is_(None),
+            )
         )
         >= 5
     ):
@@ -260,6 +267,11 @@ def from_template(
         return job_public(old)
     if t.status != "ready":
         raise HTTPException(409, "Template is not ready")
+    from .template_registry import missing_secrets
+
+    missing = missing_secrets(db, t)
+    if missing:
+        raise HTTPException(409, "Add these workspace secrets first: " + ", ".join(missing))
     target = reserve_computer(db, t.workspace_id, body.name, idempotency_key)
     db.add(
         DesktopProfile(
@@ -333,6 +345,10 @@ async def process_one():
                 FeatureJob.status == "running", FeatureJob.created_at < now() - timedelta(minutes=20)
             )
         ):
+            if stale.kind == "build" and stale.created_at > now() - timedelta(
+                minutes=feature_runtime.BUILD_MINUTES + 5
+            ):
+                continue
             finish_failed(db, stale)
         if db.scalar(select(FeatureJob).where(FeatureJob.status == "running")):
             return
@@ -357,6 +373,18 @@ async def process_one():
                 if template.snapshot_id:
                     await runtime.delete_system(template.snapshot_id)
                 template.snapshot_id, template.status = None, "deleted"
+            elif j.kind == "build":
+                from .template_registry import TemplateSpec, build_script
+
+                script = build_script(template.name, template.version, TemplateSpec(**template.spec))
+                try:
+                    snapshot, output = await feature_runtime.build(script)
+                except feature_runtime.BuildFailed as failure:
+                    template.build_log, template.status = failure.log, "failed"
+                    j.status, j.error = "failed", "Build step failed; see the build log"
+                    db.commit()
+                    return
+                template.snapshot_id, template.build_log, template.status = snapshot, output, "ready"
             else:
                 target_profile = db.get(DesktopProfile, j.target_id) if j.target_id else None
                 snapshot = await feature_runtime.materialize(
