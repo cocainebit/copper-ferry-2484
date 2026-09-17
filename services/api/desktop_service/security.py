@@ -60,9 +60,19 @@ def platform_identity(token):
         return None
     try:
         # Route on the unverified issuer so Supabase tokens never reach the platform's JWKS endpoint.
-        if jwt.decode(token, options={"verify_signature": False}).get("iss") != config.platform_issuer:
-            return None
+        unverified = jwt.decode(token, options={"verify_signature": False})
+    except Exception:
+        return None  # not a JWT at all, so it belongs to one of the other schemes
+    if unverified.get("iss") != config.platform_issuer:
+        return None
+    try:
         key = platform_jwks().get_signing_key_from_jwt(token).key
+    except Exception as exc:
+        # The token names our issuer and we still cannot get a key for it: that is an outage or a
+        # misconfiguration here. Without this line every sign-in fails and nothing says why.
+        log.warning("No signing key for a platform token: %s: %s", type(exc).__name__, exc)
+        return None
+    try:
         claims = jwt.decode(
             token,
             key,
@@ -72,7 +82,10 @@ def platform_identity(token):
             issuer=config.platform_issuer,
             options={"require": ["exp", "iat", "sub", "aud", "iss"]},
         )
-    except Exception:
+    except Exception as exc:
+        # Never log the token itself. The exception type says enough to tell an expired session from
+        # a wrong audience, which is the difference between "sign in again" and "fix the config".
+        log.info("Rejected a platform token: %s", type(exc).__name__)
         return None
     if not claims.get("sub"):
         return None

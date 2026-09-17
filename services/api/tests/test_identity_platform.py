@@ -174,3 +174,51 @@ def test_a_failing_link_never_locks_the_account_out(monkeypatch, platform, db):
     serve(monkeypatch, "platform_jwks", key)
     user = call(platform_token(key), db=db)
     assert user["id"] == "platform-user" and user["platform"] is True
+
+
+def test_an_unreachable_jwks_is_reported_as_our_problem(monkeypatch, platform, caplog):
+    """A key we cannot fetch is an outage here, and silence would leave nobody able to sign in."""
+
+    def unreachable():
+        raise jwt.exceptions.PyJWKClientError("Fail to fetch data from the url")
+
+    monkeypatch.setattr(security, "platform_jwks", unreachable)
+    key = signer("EdDSA")
+    with caplog.at_level("WARNING", logger="desktop_service.security"):
+        with pytest.raises(HTTPException) as refused:
+            call(platform_token(key, "EdDSA"))
+    assert refused.value.status_code == 401
+    assert "No signing key for a platform token" in caplog.text
+    assert "PyJWKClientError" in caplog.text
+
+
+def test_a_rejected_token_is_logged_by_reason_and_never_in_full(monkeypatch, platform, caplog):
+    key = signer("EdDSA")
+    serve(monkeypatch, "platform_jwks", key)
+    token = platform_token(key, "EdDSA", exp=int(time.time()) - 10)
+    with caplog.at_level("INFO", logger="desktop_service.security"):
+        with pytest.raises(HTTPException):
+            call(token)
+    assert "ExpiredSignatureError" in caplog.text
+    assert token not in caplog.text
+
+
+def test_a_token_from_another_issuer_is_not_logged_at_all(monkeypatch, platform, caplog):
+    """Supabase tokens and junk go to the next scheme quietly; they are not our failures."""
+    key = signer("ES256")
+    serve(monkeypatch, "platform_jwks", key)
+    with caplog.at_level("INFO", logger="desktop_service.security"):
+        assert security.platform_identity(platform_token(key, iss="http://elsewhere.test")) is None
+        assert security.platform_identity("not-a-jwt-at-all") is None
+    assert caplog.text == ""
+
+
+def test_audience_is_an_array_in_real_tokens(monkeypatch, platform, db):
+    """The provider lists its own userinfo endpoint beside our resource, so aud is a list, not a string."""
+    key = signer("EdDSA")
+    serve(monkeypatch, "platform_jwks", key)
+    token = platform_token(key, "EdDSA", aud=[AUDIENCE, ISSUER + "/oauth2/userinfo"])
+    assert call(token, db=db)["id"] == "platform-user"
+    elsewhere = platform_token(key, "EdDSA", aud=["http://someone-else.test", ISSUER + "/oauth2/userinfo"])
+    with pytest.raises(HTTPException):
+        call(elsewhere, db=db)
