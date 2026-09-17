@@ -1171,6 +1171,19 @@ footer a {
   background: #0b0b0d;
   font-family: monospace;
 }
+.file-upload {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border: 1px solid #303034;
+  border-radius: 6px;
+  color: #a5b8ab;
+  font-size: 11px;
+  cursor: pointer;
+}
+.file-upload input { display: none; }
 .terminal-panel pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

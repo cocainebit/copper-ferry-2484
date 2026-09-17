@@ -12,6 +12,48 @@ from desktop_service.entitlements import PaymentProof, activate, balance, charge
 from desktop_service.security import seal, unseal
 
 
+def test_upload_requires_control_and_writes_home(client, db, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from desktop_service import runtime
+
+    computer = Computer(
+        workspace_id="w",
+        name="Upload desktop",
+        request_id="upload-computer",
+        status="running",
+        sandbox_id="sandbox-upload",
+        controller="local-user",
+    )
+    db.add(computer)
+    db.commit()
+    monkeypatch.setattr(runtime, "tool", AsyncMock(return_value='{"name":"note.txt","size":5}'))
+    response = client.post(
+        f"/v1/computers/{computer.id}/upload",
+        json={"path": "notes/note.txt", "data": "aGVsbG8="},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"name": "note.txt", "size": 5}
+    runtime.tool.assert_awaited_once_with(
+        "sandbox-upload", "write_file", {"path": "notes/note.txt", "data": "aGVsbG8="}
+    )
+
+
+def test_upload_rejects_non_controller_and_invalid_payload(client, db):
+    computer = Computer(
+        workspace_id="w",
+        name="Upload desktop",
+        request_id="upload-computer-2",
+        status="running",
+        sandbox_id="sandbox-upload",
+        controller="agent",
+    )
+    db.add(computer)
+    db.commit()
+    assert client.post(f"/v1/computers/{computer.id}/upload", json={"path": "a", "data": "YQ=="}).status_code == 409
+    assert client.post(f"/v1/computers/{computer.id}/upload", json={"path": "../a", "data": "YQ=="}).status_code == 409
+
+
 def create(client, key="unique-request-1"):
     return client.post("/v1/workspaces/w/computers", json={"name": "My computer"}, headers={"Idempotency-Key": key})
 

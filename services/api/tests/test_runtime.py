@@ -110,6 +110,24 @@ def test_file_download_cannot_escape_home(path):
     assert not result.stdout
 
 
+@pytest.mark.parametrize("path", ["/etc/owned", "../../outside"])
+def test_file_upload_cannot_escape_home(path):
+    import base64
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    tool = Path(__file__).resolve().parents[3] / "infra/desktop/tools.py"
+    payload = base64.b64encode(
+        json.dumps({"name": "write_file", "input": {"path": path, "data": "aGVsbG8="}}).encode()
+    ).decode()
+    result = subprocess.run([sys.executable, str(tool), payload], capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "Path must stay inside Home" in result.stderr
+    assert not result.stdout
+
+
 @pytest.mark.asyncio
 async def test_snapshot_waits_for_ready(monkeypatch):
     manager = SimpleNamespace(

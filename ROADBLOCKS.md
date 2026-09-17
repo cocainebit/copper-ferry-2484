@@ -81,3 +81,8 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - Worker reconciliation tests verify always-on keeps running without dashboard activity, usage continues to be deducted, selected finite timeouts stop inactive desktops and depleted credits still stop always-on desktops. Guest background processes do not reset idle activity; use Always on for them.
 - Optional profile updates now preserve omitted CPU/RAM/display/idle values. Additive database upgrade preserves existing 15-minute defaults and is tested for repeat execution.
 - 172 backend tests and seven browser tests pass; TypeScript and Python lint pass. Local API/worker restarted after migration. A real production-duration unattended-workload soak remains unverified.
+
+## File uploads
+
+- Added owner/controller-only upload into Home at `POST /v1/computers/{id}/upload`, with a 20 MiB limit, base64 validation, safe path enforcement and dashboard file picker. The desktop helper creates missing parent directories and refuses directory targets.
+- 174 backend tests and frontend typecheck pass. Streaming multipart uploads, progress/resume, delete/export endpoints and production storage quotas remain open parity work.

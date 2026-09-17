@@ -23,6 +23,7 @@ Each workspace can store five templates. Creating a computer from one produces a
 All routes start with `/v1` and require an authenticated session. Mutations other than profile PUT require `Idempotency-Key` (8–100 characters).
 
 - `GET/PUT /computers/{id}/profile`: CPU, memory, resolution and `idle_timeout_minutes` settings. Omitted PUT fields preserve saved values. Idle timeout is 0–1440 minutes, default 15; zero disables idle stopping.
+- `POST /computers/{id}/upload`: upload one base64-encoded file into Home (maximum 20 MiB; owner/controller only).
 - `POST /computers/{id}/clone`: `{ "name": "Copy" }`.
 - `POST /computers/{id}/templates`: `{ "name": "Python tools" }`.
 - `GET /workspaces/{id}/templates`: templates with lifecycle state.

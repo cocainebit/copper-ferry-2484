@@ -16,12 +16,21 @@ def run(*command):
     return subprocess.check_output(command, timeout=45).decode()
 
 
-if name in ("list_files", "read_file"):
+if name in ("list_files", "read_file", "write_file"):
     home = Path("/home/desktop").resolve()
     target = (home / args.get("path", "")).resolve()
     if not target.is_relative_to(home):
         raise ValueError("Path must stay inside Home")
-    if name == "read_file":
+    if name == "write_file":
+        data = base64.b64decode(args.get("data", ""), validate=True)
+        if len(data) > 20 * 1024 * 1024:
+            raise ValueError("Upload must be no larger than 20 MB")
+        if target.exists() and target.is_dir():
+            raise ValueError("Upload path must be a file")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        print(json.dumps({"name": target.name, "size": len(data)}))
+    elif name == "read_file":
         if not target.is_file() or target.stat().st_size > 20 * 1024 * 1024:
             raise ValueError("Download must be a file no larger than 20 MB")
         print(json.dumps({"name": target.name, "data": base64.b64encode(target.read_bytes()).decode()}))

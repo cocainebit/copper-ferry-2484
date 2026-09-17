@@ -606,6 +606,37 @@ export default function Dashboard() {
                 </div>
                 {tab === "files" ? (
                   <div className="file-list">
+                    <label className="file-upload">
+                      Upload file
+                      <input
+                        type="file"
+                        aria-label="Upload file"
+                        disabled={busy || computer.controller === "agent"}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 20 * 1024 * 1024) {
+                            setError("Uploads must be no larger than 20 MB.");
+                            e.target.value = "";
+                            return;
+                          }
+                          await perform(async () => {
+                            const data = await new Promise<string>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+                              reader.onerror = () => reject(new Error("Could not read file"));
+                              reader.readAsDataURL(file);
+                            });
+                            await api(`/computers/${selected}/upload`, "POST", { path: file.name, data });
+                            const refreshed = await api<typeof files>(
+                              `/computers/${selected}/files?path=${encodeURIComponent(filePath)}`,
+                            );
+                            setFiles(refreshed);
+                          });
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
                     <div className="path-label">
                       <button onClick={() => setFilePath("")}>⌂ Home</button>
                       <span>/ {filePath}</span>

@@ -111,6 +111,11 @@ class Command(BaseModel):
     command: str = Field(min_length=1, max_length=8000)
 
 
+class Upload(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+    data: str = Field(min_length=1, max_length=28_000_000)
+
+
 @router.post("/v1/computers/{cid}/terminal")
 async def terminal(cid: str, body: Command, user=Depends(identity), db=Depends(database)):
     c = authorize(db, cid, user)
@@ -121,6 +126,21 @@ async def terminal(cid: str, body: Command, user=Depends(identity), db=Depends(d
     event(db, cid, "Terminal command executed", "activity")
     db.commit()
     return {"output": output}
+
+
+@router.post("/v1/computers/{cid}/upload")
+async def upload(cid: str, body: Upload, user=Depends(identity), db=Depends(database)):
+    c = authorize(db, cid, user)
+    if c.controller != user["id"]:
+        raise HTTPException(409, "Take control before uploading files")
+    try:
+        result = json.loads(await runtime.tool(c.sandbox_id, "write_file", {"path": body.path, "data": body.data}))
+    except (ValueError, RuntimeError, json.JSONDecodeError):
+        raise HTTPException(400, "Upload must be a file inside Home no larger than 20 MB") from None
+    c.last_active = now()
+    event(db, cid, "File uploaded", "activity")
+    db.commit()
+    return result
 
 
 @router.get("/v1/computers/{cid}/files")
