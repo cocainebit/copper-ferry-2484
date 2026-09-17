@@ -44,11 +44,10 @@ export type ClickOptions = {
 export type Direction = "up" | "down" | "left" | "right";
 
 export class CubicleError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
+  status: number;
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
@@ -66,11 +65,18 @@ function fromBase64(text: string): Uint8Array {
   return Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
 }
 
+export type CubicleOptions = {
+  baseUrl: string;
+  apiKey: string;
+  fetch?: typeof fetch;
+};
+
 export class Cubicle {
   private base: string;
-  constructor(
-    private options: { baseUrl: string; apiKey: string; fetch?: typeof fetch },
-  ) {
+  private options: CubicleOptions;
+  // Plain field assignments: Node's strip-only TypeScript mode rejects parameter properties.
+  constructor(options: CubicleOptions) {
+    this.options = options;
     this.base = options.baseUrl.replace(/\/+$/, "");
   }
 
