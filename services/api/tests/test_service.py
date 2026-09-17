@@ -39,19 +39,29 @@ def test_upload_requires_control_and_writes_home(client, db, monkeypatch):
     )
 
 
-def test_upload_rejects_non_controller_and_invalid_payload(client, db):
+def test_upload_rejects_non_controller_and_invalid_payload(client, db, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from desktop_service import runtime
+
     computer = Computer(
         workspace_id="w",
         name="Upload desktop",
         request_id="upload-computer-2",
         status="running",
         sandbox_id="sandbox-upload",
-        controller="agent",
+        controller="other-user",
     )
     db.add(computer)
     db.commit()
+    # Someone else holds manual control: no uploads from this caller.
     assert client.post(f"/v1/computers/{computer.id}/upload", json={"path": "a", "data": "YQ=="}).status_code == 409
     assert client.post(f"/v1/computers/{computer.id}/upload", json={"path": "../a", "data": "YQ=="}).status_code == 409
+    # Nobody controls it and no built-in task runs: the guest still refuses paths outside Home.
+    computer.controller = "agent"
+    db.commit()
+    monkeypatch.setattr(runtime, "tool", AsyncMock(side_effect=RuntimeError("Path must stay inside Home")))
+    assert client.post(f"/v1/computers/{computer.id}/upload", json={"path": "../a", "data": "YQ=="}).status_code == 400
 
 
 def test_delete_file_requires_control_and_reports_result(client, db, monkeypatch):

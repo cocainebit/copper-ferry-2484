@@ -5,12 +5,12 @@ from pathlib import Path
 
 import jwt
 from cryptography.fernet import Fernet
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 
 from .config import settings
-from .db import Member, Workspace
+from .db import Member, Workspace, database
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -45,12 +45,24 @@ def jwks():
     return jwt.PyJWKClient(settings().supabase_url + "/auth/v1/.well-known/jwks.json")
 
 
-def identity(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+def identity(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    request: Request = None,
+    db=Depends(database),
+):
     if not credentials:
         raise HTTPException(401, "Sign in to continue")
     token = credentials.credentials
     if settings().dev_mode and secrets.compare_digest(token, settings().dev_token):
         return {"id": "local-user", "email": "you@localhost", "verified": True}
+    if token.startswith("cbk_"):
+        from .api_keys import authorize_request, resolve
+
+        user = resolve(db, token)
+        if not user:
+            raise HTTPException(401, "API key is invalid, expired or revoked")
+        authorize_request(user, request)
+        return user
     try:
         key = jwks().get_signing_key_from_jwt(token).key
         claims = jwt.decode(
@@ -69,6 +81,8 @@ def identity(credentials: HTTPAuthorizationCredentials | None = Depends(bearer))
 
 
 def member(db, workspace_id, user, owner=False, lock=False):
+    if user.get("workspace_id") and user["workspace_id"] != workspace_id:
+        raise HTTPException(403, "API key is scoped to a different workspace")
     row = db.scalar(select(Member).where(Member.workspace_id == workspace_id, Member.user_id == user["id"]))
     if not row or (owner and row.role != "owner"):
         raise HTTPException(403, "Workspace access denied")

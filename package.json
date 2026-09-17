@@ -4,7 +4,9 @@
   "workspaces": [
     "apps/web",
     "packages/platform-trials",
-    "packages/platform-billing"
+    "packages/platform-billing",
+    "packages/cubicle",
+    "packages/cubicle-mcp"
   ],
   "scripts": {
     "dev": "npm run dev --workspace apps/web",

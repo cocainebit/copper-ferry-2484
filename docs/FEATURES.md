@@ -22,11 +22,13 @@ Each workspace can store five templates. Creating a computer from one produces a
 
 ## API
 
-All routes start with `/v1` and require an authenticated session. Mutations other than profile PUT require `Idempotency-Key` (8–100 characters).
+All routes start with `/v1` and require an authenticated session or a workspace API key with the right scope (see the [developer guide](API.md)). Mutations other than profile PUT require `Idempotency-Key` (8–100 characters).
 
 - `GET/PUT /computers/{id}/profile`: CPU, memory, `storage_gib` (20/50/100), resolution and `idle_timeout_minutes` settings. Omitted PUT fields preserve saved values. Idle timeout is 0–1440 minutes, default 15; zero disables idle stopping.
-- `POST /computers/{id}/upload`: upload one base64-encoded file into Home (maximum 20 MiB; owner/controller only).
-- `POST /computers/{id}/delete-file`: delete one file inside Home (owner/controller only; directories and Home itself are refused).
+- `POST /computers/{id}/upload`: upload one base64-encoded file into Home (maximum 20 MiB). Allowed for whoever may operate the computer: the person in control, or anyone in the workspace while no human has taken control and no built-in task runs.
+- `POST /computers/{id}/delete-file`: delete one file inside Home under the same rule (directories and Home itself are refused).
+- `PATCH /computers/{id}`: `{ "name": "New name" }` renames (any member).
+- `POST /computers/{id}/terminal-ticket` then the `/computers/{id}/pty` websocket: interactive administrator shell for the person in control. Computers whose saved system predates the shell fall back to the one-shot `POST /computers/{id}/terminal`.
 - `POST /computers/{id}/clone`: `{ "name": "Copy" }`.
 - `POST /computers/{id}/templates`: `{ "name": "Python tools" }`.
 - `GET /workspaces/{id}/templates`: templates with lifecycle state.

@@ -2001,3 +2001,61 @@ button.file-row:hover {
 .computer-heading .icon-button.subtle:hover {
   color: #aaa;
 }
+
+.key-reveal {
+  border: 1px solid #3a4a3f;
+  background: #0f1512;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 11px;
+  display: grid;
+  gap: 8px;
+}
+.key-reveal > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.key-reveal code {
+  flex: 1;
+  overflow-wrap: anywhere;
+  color: #a5b8ab;
+  font-size: 11px;
+}
+.key-reveal button {
+  color: #888;
+  display: inline-flex;
+}
+.key-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.key-form select {
+  font-size: 11px;
+}
+.scope-list {
+  display: grid;
+  gap: 6px;
+}
+.scope-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: #999;
+  margin: 0;
+}
+.scope-list strong {
+  color: #ddd;
+  margin-right: 4px;
+}
+.member-row code {
+  color: #a5b8ab;
+  font-size: 11px;
+}
+.member-row small {
+  color: #616169;
+  font-size: 10px;
+}

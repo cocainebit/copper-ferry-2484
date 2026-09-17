@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from . import db as models
 from . import runtime
+from .computer_api import operator
 from .config import settings
 from .db import Computer, database, event, now
 from .security import identity, member, unseal
@@ -180,9 +181,7 @@ class Upload(BaseModel):
 
 @router.post("/v1/computers/{cid}/terminal")
 async def terminal(cid: str, body: Command, user=Depends(identity), db=Depends(database)):
-    c = authorize(db, cid, user)
-    if c.controller != user["id"]:
-        raise HTTPException(409, "Take control before using the terminal")
+    c = operator(db, cid, user)
     output = await runtime.tool(c.sandbox_id, "bash", {"command": body.command})
     c.last_active = now()
     event(db, cid, "Terminal command executed", "activity")
@@ -192,9 +191,7 @@ async def terminal(cid: str, body: Command, user=Depends(identity), db=Depends(d
 
 @router.post("/v1/computers/{cid}/upload")
 async def upload(cid: str, body: Upload, user=Depends(identity), db=Depends(database)):
-    c = authorize(db, cid, user)
-    if c.controller != user["id"]:
-        raise HTTPException(409, "Take control before uploading files")
+    c = operator(db, cid, user)
     try:
         result = json.loads(await runtime.tool(c.sandbox_id, "write_file", {"path": body.path, "data": body.data}))
     except (ValueError, RuntimeError, json.JSONDecodeError):
@@ -211,9 +208,7 @@ class DeleteFile(BaseModel):
 
 @router.post("/v1/computers/{cid}/delete-file")
 async def delete_file(cid: str, body: DeleteFile, user=Depends(identity), db=Depends(database)):
-    c = authorize(db, cid, user)
-    if c.controller != user["id"]:
-        raise HTTPException(409, "Take control before deleting files")
+    c = operator(db, cid, user)
     try:
         result = json.loads(await runtime.tool(c.sandbox_id, "delete_file", {"path": body.path}))
     except (ValueError, RuntimeError, json.JSONDecodeError):

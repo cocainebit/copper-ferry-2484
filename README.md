@@ -6,7 +6,8 @@ Cubicle is the cloud-computer service for AI agents in the broader platform, wit
 
 ## What is here
 
-- Dark, responsive landing page, workspace dashboard, live noVNC viewer, task chat, approval cards, takeover controls, file browser/downloads and terminal.
+- Dark, responsive landing page, workspace dashboard, live noVNC viewer with clipboard sync, task chat, approval cards, takeover controls, file browser/uploads/downloads, rename and an interactive administrator terminal.
+- Scoped workspace API keys (read/control/manage), a public computer API (screenshot, click, drag, scroll, type, key, bash, files), a TypeScript SDK + CLI (`packages/cubicle`), a Python SDK (`sdks/python`) and an MCP server (`packages/cubicle-mcp`).
 - Supabase Google/GitHub/email authentication, owner/member workspaces, invitation links, encrypted Anthropic BYOK.
 - Durable agent runs and tool results, separate worker, pause/resume at tool boundaries, step/time limits and recent screenshot retention.
 - OpenSandbox adapter with persistent home volumes, crash recovery by computer metadata, stop/restart, expiration renewal and deletion cleanup.
@@ -22,6 +23,9 @@ apps/web/                   Next.js frontend
 services/api/               FastAPI, database, billing, agent worker and tests
 packages/platform-trials/   Shared token-trial TypeScript client
 packages/platform-billing/  Shared x402 invoice and wallet-signing client
+packages/cubicle/           TypeScript SDK and `cubicle` CLI for the computer API
+packages/cubicle-mcp/       MCP server exposing computers as tools
+sdks/python/                Python SDK (`pip install -e sdks/python`)
 infra/desktop/              Linux desktop image, visible Chromium and VNC
 infra/Caddyfile             Local same-origin HTTPS and WebSocket proxy
 infra/production/          Dedicated-Linux/gVisor deployment scaffold
@@ -30,7 +34,7 @@ supabase/                  Local email authentication and templates
 scripts/                   Startup, runtime checks, backups and restore drill
 ```
 
-Customer guides: [getting started](docs/GETTING_STARTED.md), [customizing desktops](docs/CUSTOMIZING_DESKTOPS.md), [clones/templates/resources](docs/FEATURES.md), and [accounts, AI provider and billing](docs/ACCOUNT_SETUP.md).
+Customer guides: [getting started](docs/GETTING_STARTED.md), [customizing desktops](docs/CUSTOMIZING_DESKTOPS.md), [clones/templates/resources](docs/FEATURES.md), [accounts, AI provider and billing](docs/ACCOUNT_SETUP.md), and the [developer guide](docs/API.md) for API keys, the computer API, SDKs, CLI and MCP server.
 
 Upstream fork: https://github.com/cocainebit/OpenSandbox. Keep it alongside this repository as `../OpenSandbox`. The Python SDK is pinned to commit `f7e32e5f4b1d77502db54ffdbb21eb7d7f57ce96`. The application is separate from the Apache-2.0 upstream fork.
 

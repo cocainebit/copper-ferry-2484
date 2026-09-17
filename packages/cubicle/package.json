@@ -1,0 +1,10 @@
+{
+  "name": "@cubicle/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src.ts",
+  "bin": { "cubicle": "./cli.ts" },
+  "engines": { "node": ">=22.18" },
+  "scripts": { "typecheck": "tsc --noEmit" }
+}

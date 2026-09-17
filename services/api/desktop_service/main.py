@@ -13,7 +13,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from .api_keys import router as api_keys_router
 from .billing import router as billing_router
+from .computer_api import router as computer_api_router
 from .config import settings
 from .crypto_payments import router as crypto_router
 from .db import (
@@ -160,7 +162,10 @@ def config():
 
 @app.get("/v1/workspaces")
 def workspaces(user=Depends(identity), db=Depends(database)):
-    rows = db.execute(select(Workspace, Member).join(Member).where(Member.user_id == user["id"])).all()
+    query = select(Workspace, Member).join(Member).where(Member.user_id == user["id"])
+    if user.get("workspace_id"):
+        query = query.where(Workspace.id == user["workspace_id"])
+    rows = db.execute(query).all()
     return [
         {
             "id": w.id,
@@ -602,6 +607,8 @@ def entitlements(wid: str, user=Depends(identity), db=Depends(database)):
 # Register isolated payment and desktop-gateway modules after core routes.
 
 app.include_router(features_router)
+app.include_router(api_keys_router)
+app.include_router(computer_api_router)
 app.include_router(onboarding_router)
 app.include_router(operations_router)
 app.include_router(billing_router)

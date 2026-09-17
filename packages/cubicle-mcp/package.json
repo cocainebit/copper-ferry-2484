@@ -1,0 +1,14 @@
+{
+  "name": "@cubicle/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "cubicle-mcp": "./server.ts" },
+  "engines": { "node": ">=22.18" },
+  "scripts": { "typecheck": "tsc --noEmit", "start": "node server.ts" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@cubicle/sdk": "*",
+    "zod": "^4.6.5"
+  }
+}

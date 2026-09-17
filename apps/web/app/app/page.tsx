@@ -46,6 +46,7 @@ import { Button } from "@/components/ui/button";
 import { Mark } from "@/components/brand";
 import { Viewer } from "@/components/viewer";
 import { TerminalPanel } from "@/components/terminal";
+import { ApiKeys } from "@/components/api-keys";
 type CreationTemplate = {
   id: string;
   name: string;
@@ -1004,6 +1005,7 @@ export default function Dashboard() {
                   computers={computers}
                   onRefresh={refresh}
                 />
+                <ApiKeys workspaceId={wid} />
               </>
             )}
             <article className="settings-card">
