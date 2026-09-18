@@ -74,7 +74,7 @@ hyperbrowser.ai/pricing, browserbase.com/pricing, browserless.io/pricing.
 
 | Option | Shape | Cost per desktop | Notes |
 | --- | --- | --- | --- |
-| Hetzner Cloud CX23 | 2 vCPU, 4 GB, 40 GB NVMe | **$0.0110/h ($6.89/mo)** | 20 TB traffic included. EUR 5.99 converted at 1.15 |
+| Hetzner Cloud CX23 | 2 vCPU, 4 GB, 40 GB NVMe | **$6.89/mo, which is $0.0094/h** | Hetzner's own hourly list rate is $0.0110/h, capped at the monthly price. 20 TB traffic included. EUR 5.99 converted at 1.15 |
 | Hetzner AX41 dedicated, no overcommit | 6c/12t, 64 GB, EUR 59/mo | $0.0155/h ($11.31/mo) | 6 desktops per box, CPU binds first |
 | Hetzner AX41, 2x CPU overcommit | same | $0.0077/h ($5.65/mo) | 12 desktops. The overcommit ratio is our assumption, not Hetzner's |
 | Fly.io shared-cpu-2x + 20 GiB volume | 2 vCPU, 4 GB | $0.0338/h | Stopped machines still cost rootfs and volume |
@@ -124,13 +124,13 @@ Numbers to decide, with the constraints they have to satisfy:
 
 | Lever | Suggested | Floor it must clear | Ceiling it must stay under |
 | --- | --- | --- | --- |
-| Hourly rate, cpu2-mem4 | $0.10/h | $0.011/h infrastructure | $0.1656/h market |
+| Hourly rate, cpu2-mem4 | $0.10/h | $0.0094/h infrastructure | $0.1656/h market |
 | Monthly cap per computer | $19 | $6.89/mo infrastructure | $29 Orgo |
 | Stopped computer | free, disk included | negligible | Orgo charges a full slot, Daytona charges disk |
 
 At $0.10 an hour the cap is reached after 190 hours, so anyone running a desktop more than 6.3 hours
 a day is effectively on a $19 subscription, and anyone below that is paying strictly less than the
-market rate. Margin is roughly 9x on metered hours and 2.8x at the cap. Both of those survive a
+market rate. Margin is roughly 10x on metered hours and 2.8x at the cap. Both of those survive a
 doubling of infrastructure cost.
 
 Three supporting decisions:
@@ -175,7 +175,7 @@ and are not recorded. It needs a foreground session on a real display, or a scri
 requests updates continuously.
 
 The decision does not block on it. Hetzner includes 20 TB per month on both the CX23 and the AX41,
-and one desktop would have to push 27 GB an hour continuously for a month to exhaust that. Bandwidth
+and one desktop would have to push 28 GB an hour continuously for a month to exhaust that. Bandwidth
 only becomes a real cost on Fly ($0.02/GB), AWS ($0.09/GB) or GCP ($0.085/GB), which is an argument
 about where to host rather than about how to price.
 
