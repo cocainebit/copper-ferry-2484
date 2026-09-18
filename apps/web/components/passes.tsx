@@ -17,10 +17,20 @@ type Plan = {
   gpu: boolean;
   price_usdc: number | null;
   for_sale: boolean;
+  free: boolean;
+  price_source: "platform" | "credits" | "unavailable";
+};
+type HourlyRate = {
+  tier: string;
+  sku: string;
+  price_usdc: number | null;
+  free: boolean;
 };
 type Catalog = {
   plans: Plan[];
-  pay_as_you_go: { minute_micro_usdc: number; hour_usdc: number };
+  billing: "platform" | "credits";
+  hourly?: HourlyRate[] | null;
+  pay_as_you_go?: { minute_micro_usdc: number; hour_usdc: number };
   renewal: string;
 };
 type PassInfo = {
@@ -31,6 +41,24 @@ type PassInfo = {
   pay_url?: string | null;
   includes: Record<string, number | boolean | null>;
 };
+
+function priceLabel(p: Plan) {
+  if (p.price_source === "unavailable") return "PRICE UNAVAILABLE";
+  if (p.free) return "FREE";
+  return p.price_usdc === null ? "PRICE NOT SET" : `${p.price_usdc} USDC`;
+}
+
+function buyLabel(p: Plan) {
+  return p.free ? "Start this pass" : "Buy this pass";
+}
+
+function buyHint(p: Plan) {
+  if (p.price_source === "unavailable")
+    return "The payment service is unreachable, so this cannot be bought right now";
+  if (p.free) return "No price is set for this plan, so it costs nothing";
+  if (!p.for_sale) return "The owner has not set a price for this plan yet";
+  return "Pay for this pass";
+}
 
 export function Passes({
   workspaceId,
@@ -130,9 +158,7 @@ export function Passes({
           <article className="app-card" key={p.id}>
             <div className="app-card-head">
               <strong>{p.name}</strong>
-              <span className="tag">
-                {p.for_sale ? `${p.price_usdc} USDC` : "PRICE NOT SET"}
-              </span>
+              <span className="tag">{priceLabel(p)}</span>
             </div>
             <p>{p.description}</p>
             <p className="field-note">
@@ -145,14 +171,10 @@ export function Passes({
               <Button
                 variant="ghost"
                 disabled={!owner || busy || !p.for_sale}
-                title={
-                  p.for_sale
-                    ? "Pay with workspace credits"
-                    : "The owner has not set a price for this plan yet"
-                }
+                title={buyHint(p)}
                 onClick={() => buy(p)}
               >
-                {current ? "Extend with this pass" : "Buy with credits"}
+                {current ? "Extend with this pass" : buyLabel(p)}
               </Button>
             </div>
           </article>
@@ -163,14 +185,41 @@ export function Passes({
           {message}
         </p>
       )}
-      <p className="field-note">
-        Without a pass, runtime is metered per minute from your credits
-        {catalog
-          ? ` (${catalog.pay_as_you_go.minute_micro_usdc} micro-USDC per minute, about ${catalog.pay_as_you_go.hour_usdc} USDC per hour)`
-          : ""}
-        . Computers larger than a pass includes stay on per-minute billing even
-        while the pass is active. {catalog?.renewal}
-      </p>
+      {catalog?.billing === "platform" ? (
+        <div className="field-note">
+          <p>
+            Without a pass, runtime is charged by the hour for each running
+            computer, at the rate for its size:
+          </p>
+          {catalog.hourly ? (
+            <ul className="rate-list">
+              {catalog.hourly.map((r) => (
+                <li key={r.sku}>
+                  <strong>{r.tier}</strong>{" "}
+                  {r.free
+                    ? "free (no price set)"
+                    : `${r.price_usdc} USDC / hour`}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Rates are unavailable right now, so nothing is quoted here.</p>
+          )}
+          <p>
+            Computers larger than a pass includes stay on hourly billing even
+            while the pass is active. {catalog.renewal}
+          </p>
+        </div>
+      ) : (
+        <p className="field-note">
+          Without a pass, runtime is metered per minute from your credits
+          {catalog?.pay_as_you_go
+            ? ` (${catalog.pay_as_you_go.minute_micro_usdc} micro-USDC per minute, about ${catalog.pay_as_you_go.hour_usdc} USDC per hour)`
+            : ""}
+          . Computers larger than a pass includes stay on per-minute billing
+          even while the pass is active. {catalog?.renewal}
+        </p>
+      )}
     </article>
   );
 }

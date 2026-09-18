@@ -50,11 +50,21 @@ class HourBlock(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
+def tier_name(cpu, memory, gpu=False):
+    return f"cpu{cpu}-mem{memory}" + ("-gpu" if gpu else "")
+
+
+# The tiers a desktop can be sold at. The catalog quotes these, and every hour charged names one.
+TIER_SKUS = {
+    tier_name(*shape): "cubicle.hour." + tier_name(*shape)
+    for shape in ((1, 2), (2, 4), (4, 8), (2, 4, True), (4, 8, True))
+}
+
+
 def tier_sku(profile):
     cpu = profile.cpu if profile else 2
     memory = profile.memory_gib if profile else 4
-    sku = f"cubicle.hour.cpu{cpu}-mem{memory}"
-    return sku + "-gpu" if profile and profile.gpu else sku
+    return "cubicle.hour." + tier_name(cpu, memory, bool(profile and profile.gpu))
 
 
 def hour_start(moment):

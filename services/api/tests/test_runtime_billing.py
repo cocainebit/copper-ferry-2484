@@ -273,3 +273,38 @@ def test_billing_outage_never_fails_a_desktop(db, running, platform, monkeypatch
     assert db.get(Computer, running.id).status == "running"  # not failed, not stopped
     platform.reachable = True
     assert runtime_billing.ensure(db, running) is False  # billing back: the hour is now open and unpaid
+
+
+def test_catalog_quotes_the_rail_that_actually_charges(client, db, platform):
+    """The two rails spell their SKUs differently, so reading the wrong one either hides a plan
+    that is on sale or advertises a price nobody is charged."""
+    platform.prices["cubicle.pass.month"] = 9_000_000
+    body = client.get("/v1/plans").json()
+    assert body["billing"] == "platform" and "pay_as_you_go" not in body
+    plans = {p["id"]: p for p in body["plans"]}
+    month = plans["month"]
+    assert month["price_micro_usdc"] == 9_000_000 and month["price_usdc"] == 9.0
+    assert month["for_sale"] is True and month["free"] is False and month["price_source"] == "platform"
+    day = plans["day"]
+    # Unpriced on the platform means free, which is a price, so the plan stays buyable.
+    assert day["price_micro_usdc"] is None and day["free"] is True and day["for_sale"] is True
+    hourly = {rate["tier"]: rate for rate in body["hourly"]}
+    assert hourly["cpu2-mem4"]["price_micro_usdc"] == 250_000
+    assert hourly["cpu2-mem4"]["sku"] == "cubicle.hour.cpu2-mem4"
+    assert hourly["cpu1-mem2"]["free"] is True  # no price set for that tier yet
+    assert "cpu2-mem4-gpu" in hourly
+
+
+def test_catalog_says_unknown_rather_than_unpriced_during_an_outage(client, db, platform):
+    platform.reachable = False
+    body = client.get("/v1/plans").json()
+    assert body["hourly"] is None
+    for plan in body["plans"]:
+        assert plan["price_source"] == "unavailable"
+        assert plan["for_sale"] is False and plan["price_micro_usdc"] is None
+
+
+def test_catalog_keeps_per_minute_credits_when_there_is_no_platform(client, db):
+    body = client.get("/v1/plans").json()
+    assert body["billing"] == "credits" and body["pay_as_you_go"]["minute_micro_usdc"] > 0
+    assert all(p["price_source"] == "credits" for p in body["plans"])

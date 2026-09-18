@@ -84,12 +84,42 @@ def price_of(plan_id):
 
 
 def public(plan):
-    price = price_of(plan["id"])
+    """What a plan costs, read from whichever rail actually charges for it.
+
+    The two rails name their SKUs differently (`cubicle-pass-day` for credits, `cubicle.pass.day` on
+    the platform), so reading the wrong one shows a price nobody is charged, or hides a plan that is
+    on sale. Under platform billing an unpriced SKU is free by the platform's rule, and free is a
+    real price: the plan is on sale and costs nothing.
+    """
+    if not platform_client.configured():
+        price = price_of(plan["id"])
+        return {
+            **plan,
+            "price_micro_usdc": price,
+            "price_usdc": round(price / 1_000_000, 2) if price else None,
+            "for_sale": price is not None,
+            "free": False,
+            "price_source": "credits",
+        }
+    try:
+        price = platform_client.price_for(platform_sku(plan["id"]))
+    except platform_client.PlatformError:
+        # We cannot say what it costs, which is not the same as saying it is unpriced.
+        return {
+            **plan,
+            "price_micro_usdc": None,
+            "price_usdc": None,
+            "for_sale": False,
+            "free": False,
+            "price_source": "unavailable",
+        }
     return {
         **plan,
         "price_micro_usdc": price,
         "price_usdc": round(price / 1_000_000, 2) if price else None,
-        "for_sale": price is not None,
+        "for_sale": True,
+        "free": price is None,
+        "price_source": "platform",
     }
 
 
@@ -174,10 +204,42 @@ def pass_public(row):
     }
 
 
+def hourly_rates():
+    """What an hour of each resource tier costs, from the platform's own price list."""
+    from .runtime_billing import TIER_SKUS
+
+    rates = []
+    for tier, sku_name in TIER_SKUS.items():
+        try:
+            price = platform_client.price_for(sku_name)
+        except platform_client.PlatformError:
+            return None  # unknown beats a stale or invented figure
+        rates.append(
+            {
+                "tier": tier,
+                "sku": sku_name,
+                "price_micro_usdc": price,
+                "price_usdc": round(price / 1_000_000, 2) if price else None,
+                "free": price is None,
+            }
+        )
+    return rates
+
+
 @router.get("/plans")
 def catalog():
+    if platform_client.configured():
+        # Per-minute credits are not what anyone pays here, so they are not what we advertise.
+        return {
+            "plans": [public(plan) for plan in CATALOG],
+            "billing": "platform",
+            "hourly": hourly_rates(),
+            "renewal": "Passes do not renew automatically. Buy again before expiry to extend from the "
+            "current end date.",
+        }
     return {
         "plans": [public(plan) for plan in CATALOG],
+        "billing": "credits",
         "pay_as_you_go": {
             "minute_micro_usdc": settings().cubicle_minute_micro_usdc,
             "hour_usdc": round(settings().cubicle_minute_micro_usdc * 60 / 1_000_000, 2),

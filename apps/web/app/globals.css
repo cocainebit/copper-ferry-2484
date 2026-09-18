@@ -1361,6 +1361,22 @@ footer a {
   color: #777;
   margin: 12px 0;
 }
+.rate-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+.rate-list li {
+  color: #999;
+}
+.rate-list strong {
+  color: #ccc;
+  font-weight: 500;
+  margin-right: 6px;
+}
 .member-row {
   display: flex;
   align-items: center;
