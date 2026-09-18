@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     dev_token: str = "local-development-only"
     database_url: str = "sqlite:///./.local/desktop.db"
     public_url: str = "http://localhost:3000"
+    # Extra browser origins allowed to open desktop sockets, comma separated. A dashboard served on
+    # more than one hostname needs each spelling here: to a browser they are different origins.
+    extra_origins: str = ""
     supabase_url: str = ""
     encryption_key: str = ""
     signing_key: str = ""

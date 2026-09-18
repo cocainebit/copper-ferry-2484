@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import secrets
 from datetime import timedelta, timezone
 from urllib.parse import quote
@@ -15,6 +16,8 @@ from .computer_api import operator
 from .config import settings
 from .db import Computer, database, event, now
 from .security import identity, member, unseal
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -44,8 +47,26 @@ def issue(user, cid, purpose, control, screen=0):
     return jwt.encode(claims, signing_key(), algorithm="HS256")
 
 
+def allowed_origins():
+    """Origins whose pages may open a desktop socket: the dashboard, plus any alias it is served on.
+
+    Two spellings of the same host are two origins to a browser, so a dashboard reached at
+    127.0.0.1 is refused by a deployment configured as localhost, and the other way round.
+    """
+    config = settings()
+    extra = [o.strip().rstrip("/") for o in (config.extra_origins or "").split(",") if o.strip()]
+    return [config.public_url.rstrip("/"), *extra]
+
+
 def redeem(ws, ticket, cid, purpose):
-    if ws.headers.get("origin") != settings().public_url:
+    origin = (ws.headers.get("origin") or "").rstrip("/")
+    if origin not in allowed_origins():
+        # Silence here means a viewer that will not connect and nothing anywhere saying why.
+        log.warning(
+            "Refused a desktop socket from origin %r; allowed: %s. Set PUBLIC_URL or EXTRA_ORIGINS.",
+            origin,
+            ", ".join(allowed_origins()),
+        )
         raise ValueError("origin")
     claims = jwt.decode(
         ticket, signing_key(), algorithms=["HS256"], options={"require": ["exp", "sub", "cid", "purpose"]}

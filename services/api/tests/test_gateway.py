@@ -229,3 +229,28 @@ def test_entrypoint_audio_step_can_never_block_boot():
         )
         assert result.stdout.strip().endswith("BOOT_CONTINUES"), result.stderr
     assert "export PULSE_SERVER=unix:/tmp/cubicle-pulse/native" in entry
+
+
+def test_a_second_hostname_for_the_dashboard_is_refused_and_logged(monkeypatch, caplog):
+    """Two spellings of one host are two origins to a browser, and the viewer fails silently."""
+    from desktop_service import gateway
+    from desktop_service.config import settings
+
+    monkeypatch.setattr(settings(), "public_url", "http://localhost:3000")
+    monkeypatch.setattr(settings(), "extra_origins", "")
+    assert gateway.allowed_origins() == ["http://localhost:3000"]
+
+    class Socket:
+        headers = {"origin": "http://127.0.0.1:3000"}
+
+    with caplog.at_level("WARNING", logger="desktop_service.gateway"):
+        with pytest.raises(ValueError):
+            gateway.redeem(Socket(), "irrelevant", "cid", "desktop-viewer")
+    assert "127.0.0.1:3000" in caplog.text and "EXTRA_ORIGINS" in caplog.text
+
+    monkeypatch.setattr(settings(), "extra_origins", "http://127.0.0.1:3000/, https://desk.example")
+    assert gateway.allowed_origins() == [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://desk.example",
+    ]
