@@ -121,6 +121,29 @@ def test_sku_follows_the_resource_tier(db, running):
     assert runtime_billing.tier_sku(None) == "cubicle.hour.cpu2-mem4"
 
 
+def test_every_creatable_size_has_a_tier():
+    """A size with no tier is never priced, and an unpriced SKU is free: the tiers must cover them all."""
+    import typing
+
+    from desktop_service.features import ProfileBody, TemplateCreate
+    from desktop_service.main import ComputerCreate
+
+    def choices(model, field):
+        return {
+            a for arg in typing.get_args(model.model_fields[field].annotation) for a in typing.get_args(arg) or [arg]
+        }
+
+    for model in (ComputerCreate, ProfileBody, TemplateCreate):
+        assert choices(model, "cpu") - {type(None)} == set(runtime_billing.CPU_SIZES), model
+        assert choices(model, "memory_gib") - {type(None)} == set(runtime_billing.MEMORY_SIZES), model
+    for cpu in runtime_billing.CPU_SIZES:
+        for memory in runtime_billing.MEMORY_SIZES:
+            for gpu in (0, 1):
+                profile = DesktopProfile(computer_id="x", cpu=cpu, memory_gib=memory, gpu=gpu)
+                assert runtime_billing.tier_sku(profile) in runtime_billing.TIER_SKUS.values()
+    assert not any("cpu4" in sku for sku in runtime_billing.TIER_SKUS.values())  # no size nobody can create
+
+
 def test_unpriced_tier_runs_free_and_meters_nothing(db, running, platform, clock):
     platform.prices = {}
     for _ in range(5):

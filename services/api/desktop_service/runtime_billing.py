@@ -89,10 +89,18 @@ def tier_name(cpu, memory, gpu=False):
     return f"cpu{cpu}-mem{memory}" + ("-gpu" if gpu else "")
 
 
+# Every size a computer can be created at. CPU and memory are chosen independently, so each
+# pairing is its own SKU. A size missing here is a size nobody prices, and an unpriced SKU is free,
+# so these must match the create and profile models exactly; a test holds them together.
+CPU_SIZES = (1, 2)
+MEMORY_SIZES = (2, 4)
+
 # The tiers a desktop can be sold at. The catalog quotes these, and every pack names one.
 TIER_SKUS = {
-    tier_name(*shape): "cubicle.hour." + tier_name(*shape)
-    for shape in ((1, 2), (2, 4), (4, 8), (2, 4, True), (4, 8, True))
+    tier_name(cpu, memory, gpu): "cubicle.hour." + tier_name(cpu, memory, gpu)
+    for gpu in (False, True)
+    for cpu in CPU_SIZES
+    for memory in MEMORY_SIZES
 }
 
 

@@ -206,7 +206,7 @@ def can_run(db, w):
     from . import plans, platform_client
 
     if platform_client.configured():
-        # Runtime is bought per hour as it is used; nothing needs to be held up front.
+        # Runtime is prepaid per computer and metered by the second (runtime_billing); nothing else is held.
         return True
     return plans.active(db, w.id) is not None or balance(db, w) > 0
 

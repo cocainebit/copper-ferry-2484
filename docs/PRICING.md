@@ -174,16 +174,24 @@ the dashboard's runtime strip shows paid time left, the month against the cap, a
 
 Nothing is charged until prices exist on the platform. **Price every hour tier at once.** An unpriced
 SKU is free by the platform's rule, so pricing only `cpu2-mem4` would make every other size free and
-the larger sizes the obvious choice. The approved figure is the first row; the others follow the
-linear per-vCPU and per-GiB structure every metered vendor in section 2 uses, and need confirming:
+the obvious choice.
+
+A computer's CPU (1 or 2) and memory (2 or 4 GiB) are chosen independently, so there are four sizes
+and four SKUs. An earlier version of this table listed a 4 CPU size that cannot be created and missed
+the two mixed sizes, which would have left them free; the tiers now come from the same two constants
+the API accepts, and a test holds them together.
+
+The approved figure is the first row. The others split that $0.10 between CPU and memory in the same
+proportion the metered vendors in section 2 charge for them (Daytona's $0.0504 per vCPU-hour against
+$0.0162 per GiB-hour, which E2B's per-second rates reproduce exactly), and need confirming:
 
 | SKU | Price per hour | micro-USDC | Basis |
 | --- | --- | --- | --- |
 | `cubicle.hour.cpu2-mem4` | $0.10 | 100000 | approved |
-| `cubicle.hour.cpu1-mem2` | $0.05 | 50000 | half the resources, derived |
-| `cubicle.hour.cpu4-mem8` | $0.20 | 200000 | double the resources, derived |
-| `cubicle.hour.cpu2-mem4-gpu` | not proposed | | GPU cost depends on the card; see section 4 |
-| `cubicle.hour.cpu4-mem8-gpu` | not proposed | | same |
+| `cubicle.hour.cpu2-mem2` | $0.08 | 80000 | derived: market CPU to memory ratio |
+| `cubicle.hour.cpu1-mem4` | $0.07 | 70000 | derived: same ratio |
+| `cubicle.hour.cpu1-mem2` | $0.05 | 50000 | derived: same ratio, exactly half the approved size |
+| `cubicle.hour.*-gpu` (four SKUs) | not proposed | | GPU cost depends on the card; see section 4 |
 
 The GPU tiers are config-gated off (`GPU_ENABLED`), so leaving them unpriced is safe until GPU hosts
 exist. The two passes (`cubicle.pass.day`, `cubicle.pass.month`) also still have no price.

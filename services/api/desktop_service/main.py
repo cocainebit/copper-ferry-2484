@@ -443,8 +443,11 @@ def submit(
         raise HTTPException(409, "Start the computer and return control to the agent")
     if not db.get(Credential, c.workspace_id):
         raise HTTPException(409, "Connect your Anthropic API key in settings")
-    if balance(db, member(db, c.workspace_id, user)) <= 0:
-        raise HTTPException(402, "No credits remaining")
+    # The same rule that decides whether the computer may run at all. Under platform billing the
+    # computer's runtime is already metered and paid for, so a task needs nothing more; a check on
+    # Cubicle's old credit balance here refused every task, because that balance is always zero.
+    if not can_run(db, member(db, c.workspace_id, user)):
+        raise HTTPException(402, "No pass or credits remaining")
     if db.scalar(
         select(Run).where(
             Run.computer_id == cid,

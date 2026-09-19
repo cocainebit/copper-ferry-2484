@@ -153,6 +153,31 @@ def test_task_idempotency(client, db):
     assert a.status_code == 201 and a.json()["id"] == b.json()["id"]
 
 
+def test_task_runs_under_platform_billing_with_no_credit_balance(client, db, monkeypatch):
+    """Instance workspaces never hold Cubicle credits; their runtime is metered per computer instead."""
+    monkeypatch.setattr(settings(), "platform_url", "http://platform.test")
+    monkeypatch.setattr(settings(), "platform_service_token", "t")
+    cid = create(client).json()["id"]
+    db.get(Computer, cid).status = "running"
+    w = db.get(Workspace, "w")
+    w.subscription, w.included, w.topup = "inactive", 0, 0
+    db.add(Credential(workspace_id="w", encrypted_key=seal("fake-key"), suffix="-key"))
+    db.commit()
+    r = client.post(f"/v1/computers/{cid}/runs", json={"prompt": "hi"}, headers={"Idempotency-Key": "plat-run-1"})
+    assert r.status_code == 201
+
+
+def test_task_is_refused_without_a_pass_or_credits_on_credit_billing(client, db):
+    cid = create(client).json()["id"]
+    db.get(Computer, cid).status = "running"
+    w = db.get(Workspace, "w")
+    w.subscription, w.included, w.topup = "inactive", 0, 0
+    db.add(Credential(workspace_id="w", encrypted_key=seal("fake-key"), suffix="-key"))
+    db.commit()
+    r = client.post(f"/v1/computers/{cid}/runs", json={"prompt": "hi"}, headers={"Idempotency-Key": "cred-run-1"})
+    assert r.status_code == 402 and "No pass or credits" in r.json()["detail"]
+
+
 def test_approval_is_bound_to_run(client, db):
     cid = create(client).json()["id"]
     db.get(Computer, cid).status = "running"
