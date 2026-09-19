@@ -30,6 +30,8 @@ type Catalog = {
   plans: Plan[];
   billing: "platform" | "credits";
   hourly?: HourlyRate[] | null;
+  cap_hours?: number;
+  cap_window_days?: number;
   pay_as_you_go?: { minute_micro_usdc: number; hour_usdc: number };
   renewal: string;
 };
@@ -188,8 +190,12 @@ export function Passes({
       {catalog?.billing === "platform" ? (
         <div className="field-note">
           <p>
-            Without a pass, runtime is charged by the hour for each running
-            computer, at the rate for its size:
+            Without a pass, each running computer is billed by the second from
+            hours you buy ahead, at the rate for its size. Unused hours stay
+            with the computer.
+            {catalog.cap_hours
+              ? ` No computer pays for more than ${catalog.cap_hours} h in any ${catalog.cap_window_days} days; after that, the rest of the window is free.`
+              : ""}
           </p>
           {catalog.hourly ? (
             <ul className="rate-list">
@@ -206,7 +212,7 @@ export function Passes({
             <p>Rates are unavailable right now, so nothing is quoted here.</p>
           )}
           <p>
-            Computers larger than a pass includes stay on hourly billing even
+            Computers larger than a pass includes are still billed by the second
             while the pass is active. {catalog.renewal}
           </p>
         </div>

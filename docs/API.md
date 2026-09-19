@@ -187,12 +187,17 @@ The dashboard viewer's speaker button streams the desktop's audio. Programmatic 
 
 Cubicle bills runtime two ways, both as single payable actions on the Instance platform (SPEC v0.2: pay per action, no balance anywhere):
 
-- **Hours.** A running computer is covered by a paid hour for its resource tier (`cubicle.hour.cpu2-mem4` and so on). A few minutes before the hour ends Cubicle asks the platform for the next charge and shows its payment link in the dashboard and in the computer's events. If that charge is unpaid when the hour ends, the computer stops and its files are kept.
-- **Passes.** A day or monthly pass is one charge that covers every computer inside its limits for the period. It never renews itself; buying again extends from the current expiry.
+- **Runtime, by the second.** A computer runs on hours bought ahead for its resource tier (`cubicle.hour.cpu2-mem4` and so on), one platform charge per pack. While it runs, the worker meters it by the second and draws from its packs oldest first, so five minutes of work costs five minutes. Unused hours stay with the computer and never expire. A stopped computer consumes nothing.
+- **Monthly cap.** No computer is charged for more than `RUNTIME_CAP_HOURS` (default 190) in any 30 days. Once it has used that much, the rest of the window is free and its packs keep their remaining hours for later.
+- **Passes.** A day or monthly pass is one charge that covers every computer inside its limits for the period, without drawing on packs. It never renews itself; buying again extends from the current expiry.
 
-`GET /v1/computers/{id}/runtime` reports `billing` (`platform` or `credits`), `covered_until`, `covered_by` (`pass` or `hour`), the next charge with its `pay_url`, and recent hours. `POST /v1/computers/{id}/runtime/hours` (owner, `manage` scope) opens the next hour's charge early so a payer can settle it before the desktop stops.
+When a computer has less than `RUNTIME_GRACE_MINUTES` (default 5) of paid time left, Cubicle opens the next hour's charge and shows its payment link in the dashboard and the computer's events. If the time runs out first, the computer stops and keeps its files. A computer with no paid time does not boot: it waits in `starting` with the error `Waiting for runtime to be paid`, the way it waits for capacity, and boots the moment the charge is paid. If that charge lapses unpaid, the start is abandoned.
 
-A person pays on the platform's payment sheet; an agent pays the same charge over x402 with no browser, using the charge's public payment URL. Charges are keyed by subject (`desktop:<computer id>:<hour start>`, `workspace:<id>:pass:<plan>:<key>`), so a retry never charges twice.
+`GET /v1/computers/{id}/runtime` reports `billing` (`platform` or `credits`), the tier `sku`, `seconds_left`, `used_this_window_seconds` against `cap_hours` over `window_days`, whether it is `capped`, `covered_by_pass` or `free`, `price_micro_usdc_per_hour`, the charge that is `due` with its `pay_url`, and recent `packs`.
+
+`POST /v1/computers/{id}/runtime/hours` (owner, `manage` scope) buys a pack. Body `{"hours": 10}`, from 1 to 720, default 1. Send an `Idempotency-Key`: a retry with the same key returns the same pack, and the same key with a different purchase is refused with `409`, which is also the platform's rule. An unpriced tier answers `{"free": true}` and asks for nothing.
+
+A person pays on the platform's payment sheet; an agent pays the same charge over x402 with no browser, using the charge's public payment URL.
 
 **When a SKU has no price, the action is free**: a deployment with no prices set runs normally and asks nobody to pay. When the platform is not configured at all, Cubicle falls back to its own per-minute credit ledger. If the platform is configured but unreachable or misconfigured, running computers keep running and say so; they are never failed or stopped because billing is down.
 

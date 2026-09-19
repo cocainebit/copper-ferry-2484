@@ -158,5 +158,8 @@ def test_fresh_database_creates_every_table(tmp_path, monkeypatch):
         "workspace_secrets",
         "api_keys",
         "desktop_templates",
+        "runtime_packs",
+        "runtime_usage",
+        "identity_links",
     } <= tables
     engine.dispose()

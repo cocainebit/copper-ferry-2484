@@ -300,6 +300,18 @@ async def reconcile():
                         c.error = "No pass or credits remaining"
                         db.commit()
                         continue
+                    decision = runtime_billing.may_start(db, c)
+                    if decision == "wait":
+                        # Like waiting for capacity: nothing boots until the runtime is paid.
+                        c.error = runtime_billing.WAITING_FOR_PAYMENT
+                        db.commit()
+                        continue
+                    if decision == "stop":
+                        c.status = "stopped"
+                        c.error = "Runtime was not paid, so the computer did not start"
+                        event(db, c.id, "Computer did not start: its runtime charge lapsed unpaid.", "info")
+                        db.commit()
+                        continue
                     if not c.vnc_secret:
                         c.vnc_secret = seal(secrets.token_urlsafe(18))
                     # A fresh terminal token per sandbox: it travels in the proxy URL, so it must not outlive the boot.
@@ -337,7 +349,7 @@ async def reconcile():
                     if platform_client.configured():
                         if not runtime_billing.ensure(db, c):
                             c.status = "stopping"
-                            event(db, c.id, "Computer stopped: the next hour of runtime was not paid.", "info")
+                            event(db, c.id, "Computer stopping: its prepaid runtime ran out. Files are kept.", "info")
                     else:
                         elapsed = int((now() - c.metered_at).total_seconds() // 60) if c.metered_at else 0
                         for _ in range(min(elapsed, 1440)):

@@ -2673,6 +2673,78 @@ button.file-row:hover {
   border-color: #5a4a2f;
   color: #d8c69a;
 }
+.runtime-strip {
+  font-variant-numeric: tabular-nums;
+  container-type: inline-size;
+}
+.runtime-now strong {
+  color: #c9c9cf;
+  font-weight: 500;
+}
+.runtime-strip.due .runtime-now strong {
+  color: #e8d6a8;
+}
+.runtime-strip.due .runtime-cap {
+  color: #8a8a92; /* only the payment is urgent, not the month's usage */
+}
+.runtime-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  white-space: nowrap;
+}
+.runtime-meter {
+  position: relative;
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: #242426;
+  overflow: hidden;
+}
+.runtime-meter > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.75;
+}
+.runtime-buy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.runtime-buy-label {
+  color: #6f6f76;
+  margin-right: 2px;
+}
+.runtime-strip button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.runtime-strip a:focus-visible,
+.runtime-strip button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.runtime-strip button:not(:disabled):hover,
+.runtime-strip a:hover {
+  border-color: #45454b;
+  color: #d2e2d7;
+}
+.runtime-problem {
+  flex-basis: 100%;
+  color: #e0a4a4;
+}
+/* Once the strip wraps, the usage starts its own row and the divider would dangle at its edge. */
+@container (max-width: 620px) {
+  .runtime-cap {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
 .runtime-strip > span {
   display: inline-flex;
   align-items: center;

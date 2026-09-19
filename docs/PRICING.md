@@ -166,7 +166,29 @@ This also fixes the current hour-block behaviour, where a desktop stopped after 
 been charged for a full hour. That was a workaround for having no hold primitive on the platform, and
 a consumable pack is the better answer whether or not a hold ever lands.
 
-## 8. What is still unknown
+## 8. Status: built, waiting on prices
+
+Implemented on 2026-09-19 exactly as section 7 describes, with the cap at 190 hours per computer per
+rolling 30 days (`RUNTIME_CAP_HOURS`). The code is `services/api/desktop_service/runtime_billing.py`;
+the dashboard's runtime strip shows paid time left, the month against the cap, and where to pay.
+
+Nothing is charged until prices exist on the platform. **Price every hour tier at once.** An unpriced
+SKU is free by the platform's rule, so pricing only `cpu2-mem4` would make every other size free and
+the larger sizes the obvious choice. The approved figure is the first row; the others follow the
+linear per-vCPU and per-GiB structure every metered vendor in section 2 uses, and need confirming:
+
+| SKU | Price per hour | micro-USDC | Basis |
+| --- | --- | --- | --- |
+| `cubicle.hour.cpu2-mem4` | $0.10 | 100000 | approved |
+| `cubicle.hour.cpu1-mem2` | $0.05 | 50000 | half the resources, derived |
+| `cubicle.hour.cpu4-mem8` | $0.20 | 200000 | double the resources, derived |
+| `cubicle.hour.cpu2-mem4-gpu` | not proposed | | GPU cost depends on the card; see section 4 |
+| `cubicle.hour.cpu4-mem8-gpu` | not proposed | | same |
+
+The GPU tiers are config-gated off (`GPU_ENABLED`), so leaving them unpriced is safe until GPU hosts
+exist. The two passes (`cubicle.pass.day`, `cubicle.pass.month`) also still have no price.
+
+## 9. What is still unknown
 
 **Bandwidth per desktop-hour is not measured.** A desktop streams its screen, which the headless
 sandbox vendors mostly do not, so their pricing gives no guide. An attempt to measure it here failed:

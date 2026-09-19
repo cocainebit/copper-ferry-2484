@@ -50,7 +50,7 @@ Updated September 17, 2026. This records review items without interrupting imple
 Automatic approval review rejected execution of the optional Anthropic provider-preflight script because it could decrypt a stored key and send it to Anthropic without destination-specific authorization. No request was sent. A real provider check remains deferred; the local workspace also has no Anthropic key configured.
 
 
-## Cubicle crypto implementation — September 17
+## Cubicle crypto implementation, September 17
 
 - Product name is **Cubicle**; the platform it sits on is **Instance** (instanceOS), shared with Floatlane and Plotform (owner decision, September 17, 2026). Existing `agent-desktop` identifiers stay for compatibility. Domain, repository and the trial token are still undecided.
 - Shared integer micro-USDC ledger, server-priced cross-service debits, wallet checkout, invoices, receipts/activity history, dedicated payment worker, monitoring and reconciliation tools are implemented.
@@ -148,3 +148,13 @@ Automatic approval review rejected execution of the optional Anthropic provider-
 - The browser half is verified as far as the platform's own sign-in page: `/login` sends a correct PKCE S256 request and the platform renders "Sign in to continue to Cubicle" with Ethereum wallet, Solana wallet and email-code options. A mismatched `state` on the way back is refused without exchanging anything.
 - Cubicle is registered as a **confidential** client (`client_secret_post`), but its token exchange runs in the browser with PKCE and no secret, which is the wrong pair. Asked the platform session to re-register it as public (`token_endpoint_auth_method: none`). `PLATFORM_CLIENT_SECRET` was unused by any code here and has been removed from `services/api/.env`.
 - Still open: nothing removes Supabase or Cubicle's own credit ledger yet, no production identity project exists, and no SKU is priced on the platform (`/internal/v1/prices` is empty), so all runtime is free until the owner sets prices.
+
+## Per-second runtime with a monthly cap (September 19, 2026)
+
+- Hour blocks are gone. Runtime is bought in packs of whole hours per computer and metered by the second while it runs, capped at 190 hours per computer in any 30 days (`docs/PRICING.md` sections 6 to 8, approved by the owner).
+- This fixed a latent bug: under hour blocks a new computer booted, then its first tick found the first hour unpaid and stopped it, so with any price set no computer could ever start. A computer with no paid time now waits in `starting` until its charge is paid.
+- The old `runtime_hours` table stays in existing databases, unused. No real money ever moved through it: no `cubicle.hour.*` SKU has ever been priced, so every block was free.
+- A worker outage is not charged: a tick more than 120 seconds after the last one counts as 120. A platform outage keeps desktops running unmetered, as before.
+- Verified by 26 unit tests (each of eight deliberate breakages of the meter is caught by at least one), a browser test that renders the strip in all eight billing states at full and phone width, and the platform's own source for how it prices `units` above 1. Not verified live against the real platform: the machine had rebooted, the platform service was down, and no tier is priced, so a live run would only have exercised the free path.
+- **Owner action needed:** price every `cubicle.hour.*` tier together (table in `docs/PRICING.md` section 8). Pricing one tier alone makes the others free.
+

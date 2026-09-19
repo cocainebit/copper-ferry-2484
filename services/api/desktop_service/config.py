@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     platform_audience: str = ""
     # How long a desktop keeps running while the next hour is unpaid, and how early we ask for it.
     runtime_grace_minutes: int = 5
+    # No computer is charged for more than this many hours of runtime in any 30 days; past it the rest
+    # of the window is free. 190 h at $0.10 is a $19 ceiling, under Orgo's $29 (docs/PRICING.md). 0 = no cap.
+    runtime_cap_hours: int = 190
     anthropic_model: str = "claude-sonnet-4-6"
     max_desktops: int = 4
     paid_saved_computers: int = 2

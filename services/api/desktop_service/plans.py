@@ -234,6 +234,10 @@ def catalog():
             "plans": [public(plan) for plan in CATALOG],
             "billing": "platform",
             "hourly": hourly_rates(),
+            # Metered by the second from prepaid packs; never more than this many hours per computer in
+            # any 30 days, after which the rest of the window is free.
+            "cap_hours": settings().runtime_cap_hours,
+            "cap_window_days": 30,
             "renewal": "Passes do not renew automatically. Buy again before expiry to extend from the "
             "current end date.",
         }
